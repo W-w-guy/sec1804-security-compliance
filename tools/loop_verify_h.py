@@ -85,35 +85,61 @@ def extract() -> tuple[str, str | None]:
 
 # ---------------- H1 zip 完整性 ----------------
 def h1(rng):
+    """交付物里不该有运行残留。
+
+    ★ 判定口径（第一版错了两次）：
+      1) 只会找 zip → clone 出来的仓库 14 项全 FAIL；
+      2) 改成目录模式后，仍把 `reports/_pytest.xml` 判为残留 —— 但那是我**刚跑的
+         verify 生成的**副产物，不是交付物自带的。先跑测试再查残留，等于拿脏数据判自己。
+      正确做法：按仓库自带的 `.gitignore` 判定"什么是残留"，并且**跳过本次运行产生的文件**。
+    """
     d, zp = source_dir()
-    if not zp:
-        junk = []
-        for dp, dn, fns in os.walk(d):
-            dn[:] = [x for x in dn if x not in ("__pycache__", ".venv", ".venv2", ".git")]
-            junk += [os.path.relpath(os.path.join(dp, f), d) for f in fns
-                     if f.endswith((".pyc", ".db")) or f == "_pytest.xml"]
-        must = ["README.md", "run.py", "Dockerfile", "docker-compose.yml",
-                "requirements.txt", "app/main.py", "tools/verify.py", "data/samples_200.csv"]
-        missing = [m for m in must if not os.path.exists(os.path.join(d, m))]
-        return (not junk and not missing), json.dumps(
-            {"mode": "directory", "junk": junk[:5], "missing": missing[:5]})
-    with zipfile.ZipFile(zp) as z:
-        names = z.namelist()
-        bad_names = z.testzip()
-    must = ["sec1804/README.md", "sec1804/run.py", "sec1804/Dockerfile",
-            "sec1804/docker-compose.yml", "sec1804/requirements.txt",
-            "sec1804/app/main.py", "sec1804/tools/verify.py",
-            "sec1804/data/samples_200.csv"]
-    missing = [m for m in must if m not in names]
-    junk = [n for n in names if any(k in n for k in
-                                    ("__pycache__", ".pyc", ".venv", ".kms", ".pytest_cache",
-                                     ".db", "_pytest.xml", ".git/"))]
-    secrets = [n for n in names if n.endswith(("keys.json", ".env", "id_rsa"))]
-    checks = {"no_corrupt_entry": bad_names is None, "no_missing_core": not missing,
-              "no_junk": not junk, "no_secrets": not secrets,
-              "entries": len(names), "junk": junk[:5], "missing": missing[:5]}
-    return all([checks["no_corrupt_entry"], checks["no_missing_core"],
-                checks["no_junk"], checks["no_secrets"]]), json.dumps(checks, ensure_ascii=False)
+    # 本次运行会产生的文件（不算交付物残留）
+    runtime_artifacts = {"_pytest.xml"}
+    if zp:
+        with zipfile.ZipFile(zp) as z:
+            names = z.namelist()
+            corrupt = z.testzip()
+        must = ["sec1804/README.md", "sec1804/run.py", "sec1804/Dockerfile",
+                "sec1804/docker-compose.yml", "sec1804/requirements.txt",
+                "sec1804/app/main.py", "sec1804/tools/verify.py",
+                "sec1804/data/samples_200.csv"]
+        missing = [m for m in must if m not in names]
+        junk = [n for n in names if any(k in n for k in
+                                       ("__pycache__", ".pyc", ".venv", ".kms",
+                                        ".pytest_cache", ".db", "_pytest.xml", ".git/"))]
+        secrets = [n for n in names if n.endswith(("keys.json", ".env", "id_rsa"))]
+        checks = {"mode": "zip", "no_corrupt": corrupt is None, "no_missing_core": not missing,
+                  "no_junk": not junk, "no_secrets": not secrets,
+                  "entries": len(names), "junk": junk[:5], "missing": missing[:5]}
+        return all([checks["no_corrupt"], checks["no_missing_core"],
+                    checks["no_junk"], checks["no_secrets"]]), json.dumps(checks, ensure_ascii=False)
+
+    # ---- 目录模式：按 .gitignore 判残留 ----
+    ignored = []
+    gi = os.path.join(d, ".gitignore")
+    if os.path.exists(gi):
+        ignored = [ln.strip().rstrip("/") for ln in open(gi, encoding="utf-8")
+                   if ln.strip() and not ln.startswith("#")]
+    junk = []
+    for dp, dn, fns in os.walk(d):
+        dn[:] = [x for x in dn if x not in ("__pycache__", ".venv", ".venv2", ".git",
+                                            ".pytest_cache", ".kms")]
+        for f in fns:
+            rel = os.path.relpath(os.path.join(dp, f), d).replace("\\", "/")
+            if f in runtime_artifacts:
+                continue
+            if f.endswith((".pyc", ".db", ".db-wal", ".db-shm")):
+                junk.append(rel)
+            elif any(rel.endswith(p.lstrip("*/")) or p in rel for p in ignored
+                     if p and not p.startswith("!")):
+                junk.append(rel)
+    must = ["README.md", "run.py", "Dockerfile", "docker-compose.yml",
+            "requirements.txt", "app/main.py", "tools/verify.py", "data/samples_200.csv"]
+    missing = [m for m in must if not os.path.exists(os.path.join(d, m))]
+    checks = {"mode": "directory", "no_missing_core": not missing, "no_junk": not junk,
+              "junk": junk[:6], "missing": missing[:5], "gitignore_rules": len(ignored)}
+    return (not missing and not junk), json.dumps(checks, ensure_ascii=False)
 
 
 # ---------------- H2 无绝对路径泄漏 ----------------

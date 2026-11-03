@@ -8,7 +8,7 @@
    "round": 1,
    "name": "zip_integrity",
    "ok": true,
-   "detail": "{\"no_corrupt_entry\": true, \"no_missing_core\": true, \"no_junk\": true, \"no_secrets\": true, \"entries\": 76, \"junk\": [], \"missing\": []}"
+   "detail": "{\"mode\": \"zip\", \"no_corrupt\": true, \"no_missing_core\": true, \"no_junk\": true, \"no_secrets\": true, \"entries\": 76, \"junk\": [], \"missing\": []}"
   },
   {
    "round": 2,
