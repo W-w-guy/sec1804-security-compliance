@@ -1,0 +1,68 @@
+{
+ "platform": "Linux",
+ "python": "3.12.3",
+ "seed": 20261103,
+ "rounds": [
+  {
+   "round": 1,
+   "name": "unit_tests",
+   "ok": true,
+   "detail": "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html"
+  },
+  {
+   "round": 2,
+   "name": "masking_recall",
+   "ok": true,
+   "detail": "samples_200.csv:n=228 r(phone/id/name/addr)=1.0/1.0/1.0/1.0 fp=0.000 | holdout_adversarial.csv:n=38 r(phone/id/name/addr)=1.0/1.0/1.0/1.0 fp=0.000"
+  },
+  {
+   "round": 3,
+   "name": "audit_tamper",
+   "ok": true,
+   "detail": "mode=content seq=4 tampered=[4]"
+  },
+  {
+   "round": 4,
+   "name": "kms_rotate",
+   "ok": true,
+   "detail": "versions 1->2->3 reencrypted=3"
+  },
+  {
+   "round": 5,
+   "name": "rbac_matrix",
+   "ok": true,
+   "detail": "recruiter:out_of_scope recruiter:out_of_scope station_manager:out_of_scope station_manager:out_of_scope ops:out_of_scope ops:out_of_scope admin:out_of_scope auditor:out_of_scope auditor:out_of_scope"
+  },
+  {
+   "round": 6,
+   "name": "retention",
+   "ok": true,
+   "detail": "report={'transcripts_deleted': 0, 'minors_deleted': 1, 'expired_anonymized': 1, 'expired_deleted': 1, 'revoked_deleted': 0} rules=['hired_180d', 'minor_24h', 'not_hired_90d']"
+  },
+  {
+   "round": 7,
+   "name": "consent_revoke",
+   "ok": true,
+   "detail": "deleted=True gone=True logged=True"
+  },
+  {
+   "round": 8,
+   "name": "approval",
+   "ok": true,
+   "detail": "{\"expired\": true, \"replay\": true, \"mismatch\": true, \"short_reason\": true}"
+  },
+  {
+   "round": 9,
+   "name": "api_contract",
+   "ok": true,
+   "detail": "paths=22 bad_prefix=[] missing=[] 401shape=True"
+  },
+  {
+   "round": 10,
+   "name": "e2e_and_license",
+   "ok": true,
+   "detail": "demo_ok=True license_ok=True denied=0"
+  }
+ ],
+ "ok": true
+}

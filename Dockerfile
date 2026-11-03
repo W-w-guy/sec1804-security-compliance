@@ -7,8 +7,10 @@ ARG PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
 WORKDIR /app
 
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -i ${PIP_INDEX_URL} -r requirements.txt
+# 装的是 requirements-dev：交付物里带测试，买家在容器里也要能一条命令跑全绿。
+# （B9 在容器内跑时因缺 httpx 直接异常 —— TestClient 依赖 httpx）
+COPY requirements.txt requirements-dev.txt ./
+RUN pip install --no-cache-dir -i ${PIP_INDEX_URL} -r requirements-dev.txt
 
 COPY app ./app
 COPY tools ./tools

@@ -190,6 +190,60 @@ PG_RESULT: ALL PASS
 > 用 `API_PORT=18080 docker compose up -d` 即可。这不是权衡，是实测撞过。
 > Vault 放在 `--profile vault` 里：镜像在国内源上经常拉不到，不该挡住"一键启动"。
 
+
+## 第二轮十轮（B 组）：把"功能对不对"换成"压力与边界上还对不对"
+
+`python tools/loop_verify_b.py` —— 与 A 组分开，专打第一轮打不到的面。
+
+```
+[PASS] B1  concurrent_audit         rows=400 expect=400 chain_ok=True forks=0 gaps=[] errs=[]
+[PASS] B2  concurrent_tokenize      tokens=1 rows_for_that_token=1 calls=32 errs=[]
+[PASS] B3  sqlite_vs_pg             两方言输出逐项一致（7 项）
+[PASS] B4  rotate_interleave        versions 1->2->3 ok=True
+[PASS] B5  fuzz_big_input           1MB 无崩溃、<30s；零宽/RTL/emoji 存活；空值/非法类型/超长 token 均被拒
+[PASS] B6  restart_chain            rows=10 chain_ok=True key_persist=True
+[PASS] B7  rbac_matrix_snapshot     5 角色 26 项权限逐项一致，无悄悄放权
+[PASS] B8  retention_boundary       90d/180d/24h 边界：差 1 秒保留、整点触发
+[PASS] B9  openapi_errorcodes       23 路径 25 操作，operationId 无重复，错误码唯一且都有 code+message
+[PASS] B10 vault_backend            versions 2->3 keylen=32 old_key_stable=True
+B 组结果: 10 通过 / 0 失败 / 0 跳过
+```
+执行环境：Ubuntu 24.04 容器内，**真 PostgreSQL 16 + 真 HashiCorp Vault 1.18**。
+Windows 宿主机上 B3/B10 会显式 SKIP（无 PG / 无 Vault），**不计为通过**。
+
+### B 组挖出的 6 个真缺陷（全部已修，且都只在特定环境暴露）
+
+| # | 缺陷 | 怎么暴露的 | 后果 | 修法 |
+|---|---|---|---|---|
+| 1 | 并发审计写丢数据 | B1：8 线程 × 50 条 | `UNIQUE constraint failed: audit_log.seq`，400 条只落 51 条 | `Audit.append` 加锁 + `db.serialized()`（PG 用 advisory lock）+ 退避重试 |
+| 2 | 并发 tokenize 同一号码得到**不同 token** | B2：32 线程并发 | `stable_key()` 首用时被多线程各生成一把索引密钥，后写覆盖先写；同一个手机号 3 个 token | 有 `KMS_SECRET` 时由 secret 派生；否则加锁 get-or-create 并**回读以落盘值为准** |
+| 3 | 并发同值 tokenize 主键冲突 | B2 | `UNIQUE constraint failed: vault_items.token` | 冲突时回查，已存在即返回同一 token |
+| 4 | 保留期边界差 1 秒才触发 | B8：24h 整点 | 未成年人 24h 整点**不删**，差 1 秒才删 —— 合规缺口 | 边界统一为"到期即触发"（`<=`） |
+| 5 | 1MB 文本拖死正则 | B5 | 单个 20KB 片段 104ms，1MB 直通分钟级 → 接口可被一次请求拖死 | `detect()` 按 2000 字切块并在标点断开；1MB 降到 1.8s |
+| 6 | Vault 后端从第一次用就是坏的 | B10 | `_load()` 读不到就返回 `{"keys":{}}`，随后 `key(1)` → `KeyError: '1'`；file 后端正常，本地永远发现不了 | `_load()` 首读 404 时自举 v1 密钥 |
+
+另外 4 个是**测试自身**的问题，也一并修了（不修就是假通过）：
+
+- 十轮共用同一个 PG 库 → 上一轮篡改的坏行让下一轮 `verify()` 直接判 False。改为**每个 Container 一个独立 schema**（与 sqlite"一实例一文件"语义等价）。`tests/conftest.py` 每用例一个 schema，所以 `pytest` 现在也能直接跑在真 PG 上。
+- B2 用 `item_type='phone'` 计数，被别的轮污染 → 改为按 token 计数。
+- 镜像里没装 dev 依赖 → `TestClient` 缺 httpx，B9 在容器内直接异常。Dockerfile 改为安装 `requirements-dev.txt`（交付物带测试，买家在容器里也要能一条命令跑全绿）。
+- `verify.py` 第一步读到了上一次被篡改的行 → 独立 schema。
+
+### 容器内实测（真 PG + 真 Vault）
+
+```
+$ docker exec -e PG_DSN=postgresql://sec:sec@db:5432/sec1804 \
+    -e VAULT_ADDR=http://vault:8200 -e VAULT_TOKEN=root sec1804-api-1 \
+    python tools/run_tests.py --junit-xml=/tmp/j.xml
+JUNIT tests=77 failures=0 errors=0
+
+$ docker exec ... python tools/verify.py
+[PASS] ×5   RESULT: ALL PASS
+
+$ docker exec ... python tools/loop_verify.py    → 10 轮 10/10
+$ docker exec ... python tools/loop_verify_b.py  → 10 通过 / 0 失败 / 0 跳过
+```
+
 ## 与契约 v1 的对齐点
 
 - 前缀 `/api/v1`，错误体 `{code, message}`；员工端 `Authorization: Bearer <JWT>`。
@@ -211,6 +265,9 @@ PG_RESULT: ALL PASS
 1. 姓名识别是规则 + 上下文锚点，没有训练模型。合成集 100%、对抗集 100%，但真实语料
    （方言昵称、少数民族姓名、单字名）会有漏检；`strict_names=False` 与自定义黑名单可调。
 2. 地址识别对“只有小区名、无门牌”的表述会整段脱敏（偏保守），宁可多脱不可少脱。
-3. 审计链是“单写入者顺序链”。多进程并发写同一张表时，`seq` 由数据库序列保证唯一，
-   但 `prev_hash` 需串行化；生产建议把审计写入收敛到单一审计服务（本模块已这样设计）。
-4. 本地 `FileKMS` 用文件保存密钥，适合开发与单机部署；生产必须切 `KMS_BACKEND=vault`。
+3. 审计链并发：同一进程内已用锁 + `db.serialized()` 串行化；跨进程在 PostgreSQL 上用
+   `pg_advisory_lock` 串行化（B1 轮 8×50 并发实测 400/400 落库、链完整）。
+   极高并发下仍是单写入瓶颈 —— 生产建议把审计写入收敛到单一审计服务，
+   这是吞吐取舍，不是正确性缺口。
+4. 本地 `FileKMS` 用文件保存密钥，适合开发与单机部署；生产必须切 `KMS_BACKEND=vault`
+   （已在容器内用真 Vault 1.18 验过：密钥自举、轮换、旧版本密钥仍可解）。

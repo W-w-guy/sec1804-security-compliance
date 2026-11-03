@@ -7,6 +7,8 @@ import sqlite3
 import threading
 from typing import Any, Iterable
 
+from contextlib import contextmanager
+
 from app.config import Settings
 
 _SCHEMA = [
@@ -90,6 +92,7 @@ class DB:
         self.settings = settings
         self._lock = threading.RLock()
         self.dialect = "pg" if settings.pg_dsn else "sqlite"
+        self.schema = "public"
         if self.dialect == "sqlite":
             self._conn = sqlite3.connect(settings.sqlite_path, check_same_thread=False)
             self._conn.row_factory = sqlite3.Row
@@ -98,6 +101,10 @@ class DB:
             # 用 pg8000（BSD-3）而非 psycopg（LGPL-3）：契约 v1 只允许 MIT/Apache/BSD/PostgreSQL
             self._conn = _pg_connect(settings.pg_dsn)
             self._conn.autocommit = True
+            self.schema = getattr(settings, "pg_schema", "public") or "public"
+            cur = self._conn.cursor()
+            cur.execute(f'CREATE SCHEMA IF NOT EXISTS "{self.schema}"')
+            cur.execute(f'SET search_path TO "{self.schema}"')
         self._migrate()
 
     def _migrate(self) -> None:
@@ -157,6 +164,28 @@ class DB:
             f"UPDATE {table} SET {sets} WHERE " + " AND ".join(f"{c}=?" for c in key),
             list(patch.values()) + list(key.values()),
         )
+
+    @contextmanager
+    def serialized(self, name: str = "audit"):
+        """跨线程/跨进程的串行区（哈希链"读上一行→写本行"必须原子）。
+
+        sqlite：进程内 RLock 即可（sqlite 自己还有文件锁）。
+        PostgreSQL：用 advisory lock，键由表名派生，事务外也生效、释放跟随会话。
+        不加这层的后果（B1 轮实测）：8 线程 × 50 条并发 append 时，
+        多个线程读到同一个 seq/prev_hash，插入时 UNIQUE constraint failed: audit_log.seq，
+        400 条只落 51 条 —— 链没断，但数据丢了。
+        """
+        if self.dialect == "sqlite":
+            with self._lock:
+                yield
+            return
+        key = abs(hash(name)) % (2 ** 31 - 1)
+        with self._lock:
+            self._conn.cursor().execute("SELECT pg_advisory_lock(%s)", (key,))
+            try:
+                yield
+            finally:
+                self._conn.cursor().execute("SELECT pg_advisory_unlock(%s)", (key,))
 
     def close(self) -> None:
         try:

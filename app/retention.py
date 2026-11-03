@@ -61,7 +61,9 @@ class Retention:
 
         # 1) 对话原文 30 天
         cutoff = _iso(now - self.s.retain_transcript_days * DAY)
-        for r in self.db.query("SELECT id, candidate_id FROM transcripts WHERE deleted_at IS NULL AND created_at<?", (cutoff,)):
+        # 边界语义统一为"到期即触发"：created_at <= cutoff（B8 轮实测：用 < 时，
+        # 24h/30d 整点那一刻不触发，差 1 秒才触发 —— 边界上少删一次就是合规缺口）
+        for r in self.db.query("SELECT id, candidate_id FROM transcripts WHERE deleted_at IS NULL AND created_at<=?", (cutoff,)):
             self.db.execute("DELETE FROM transcripts WHERE id=?", (r["id"],))
             self._log_deletion("transcript", r["id"], "delete", "transcript_30d",
                                detail=f"candidate={r['candidate_id']}", now=now)
@@ -69,7 +71,7 @@ class Retention:
 
         # 2) 未成年人 24 小时内删除
         mcut = _iso(now - self.s.retain_minor_hours * 3600)
-        for r in self.db.query("SELECT id FROM candidates WHERE is_minor=1 AND created_at<?", (mcut,)):
+        for r in self.db.query("SELECT id FROM candidates WHERE is_minor=1 AND created_at<=?", (mcut,)):
             if self.delete_candidate(r["id"], "minor_24h", mode="delete", now=now):
                 report["minors_deleted"] += 1
 

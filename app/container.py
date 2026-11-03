@@ -16,8 +16,10 @@ from app.vault import Vault
 
 class Container:
     def __init__(self, settings: Settings | None = None, db_path: str | None = None,
-                 kms_dir: str | None = None):
+                 kms_dir: str | None = None, pg_schema: str | None = None):
         self.settings = settings or Settings()
+        if pg_schema:
+            self.settings.pg_schema = pg_schema
         if db_path:
             self.settings.sqlite_path = db_path
         if kms_dir:

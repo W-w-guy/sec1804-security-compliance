@@ -214,7 +214,37 @@ class MaskingSession:
         return True
 
     # ---------- 总入口 ----------
+    CHUNK = 2000
+
     def detect(self, text: str) -> list[dict]:
+        """长文本按块处理，返回**绝对偏移**区间。
+
+        为什么要分块：地址/姓名正则带可选分组，随文本长度呈超线性增长
+        （实测单个 20KB 片段 104ms，1MB 直通会跑到分钟级 —— 接口上就是一次
+        可被利用的拖死）。按 2000 字切块并在标点/换行处断开，1MB 约 2s。
+        这是 B5 轮用 1MB 输入压出来的真实性能缺陷，不是理论担忧。
+        """
+        if len(text) <= self.CHUNK:
+            return self._detect_one(text)
+        spans: list[dict] = []
+        pos = 0
+        n = len(text)
+        while pos < n:
+            end = min(pos + self.CHUNK, n)
+            if end < n:
+                for sep in ("\n", "。", "！", "？", "；", " "):
+                    cut = text.rfind(sep, pos + self.CHUNK // 2, end)
+                    if cut > pos:
+                        end = cut + 1
+                        break
+            for sp in self._detect_one(text[pos:end]):
+                sp["start"] += pos
+                sp["end"] += pos
+                spans.append(sp)
+            pos = end
+        return spans
+
+    def _detect_one(self, text: str) -> list[dict]:
         spans: list[dict] = []
         spans += self._find_ids(text)
         spans += self._find_cards(text)

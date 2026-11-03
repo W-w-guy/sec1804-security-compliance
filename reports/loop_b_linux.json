@@ -1,0 +1,70 @@
+{
+ "platform": "Linux",
+ "python": "3.12.16",
+ "seed": 20261104,
+ "rounds": [
+  {
+   "round": 1,
+   "name": "concurrent_audit",
+   "ok": true,
+   "detail": "rows=400 expect=400 chain_ok=True forks=0 gaps=[] errs=[]"
+  },
+  {
+   "round": 2,
+   "name": "concurrent_tokenize",
+   "ok": true,
+   "detail": "tokens=1 rows_for_that_token=1 calls=32 errs=[]"
+  },
+  {
+   "round": 3,
+   "name": "sqlite_vs_pg",
+   "ok": true,
+   "detail": "两方言输出逐项一致（7 项）"
+  },
+  {
+   "round": 4,
+   "name": "rotate_interleave",
+   "ok": true,
+   "detail": "v1=1 versions=['vt_1Q5bAwc83XUydgwn2_U_MZPLnU', 'vt_KCOzBsfVG9_BpyOYL9EfGN12YQ', 'vt_TZnnzuWDM_kNLKMapVKigMDm2g'] ok=True"
+  },
+  {
+   "round": 5,
+   "name": "fuzz_big_input",
+   "ok": true,
+   "detail": "{\"1MB_no_crash\": true, \"1MB_under_30s\": true, \"weird_unicode_survives\": true, \"empty_ok\": true, \"punct_ok\": true, \"bad_type_rejected\": true, \"empty_value_rejected\": true, \"long_token_rejected\": true}"
+  },
+  {
+   "round": 6,
+   "name": "restart_chain",
+   "ok": true,
+   "detail": "rows=10 chain_ok=True tip_changed=True key_persist=True"
+  },
+  {
+   "round": 7,
+   "name": "rbac_matrix_snapshot",
+   "ok": true,
+   "detail": "matrix OK, 5 角色 26 项权限逐项一致"
+  },
+  {
+   "round": 8,
+   "name": "retention_boundary",
+   "ok": true,
+   "detail": "{\"just_before_kept\": true, \"exactly_due_deleted\": true, \"hired_before_kept\": true, \"hired_due_anonymized\": true, \"minor_23h59_kept\": true, \"minor_24h_deleted\": true}"
+  },
+  {
+   "round": 9,
+   "name": "openapi_errorcodes",
+   "ok": true,
+   "detail": "paths=23 ops=25 dup=[] err_codes=['conflict', 'forbidden', 'not_found', 'unauthorized'] bodies_ok=True framework404_json=True"
+  },
+  {
+   "round": 10,
+   "name": "vault_backend",
+   "ok": true,
+   "detail": "versions 4->5 keylen=32 old_key_stable=True"
+  }
+ ],
+ "passed": 10,
+ "failed": 0,
+ "skipped": []
+}

@@ -15,6 +15,9 @@ def _int(name: str, dflt: int) -> int:
 class Settings:
     # 存储：未设置 PG_DSN 时用内置 sqlite（零依赖，便于干净机器自验）
     pg_dsn: str = os.environ.get("PG_DSN", "")
+    # PG 模式下用独立 schema 隔离（等价于 sqlite 的"每个实例一个文件"）。
+    # 默认 public；测试/多租同时可指定，避免互串数据把哈希链搞脏。
+    pg_schema: str = os.environ.get("PG_SCHEMA", "public")
     sqlite_path: str = os.environ.get("SQLITE_PATH", ":memory:")
     # KMS：file（默认）| vault（HashiCorp Vault KV v2 适配层，可替换）
     kms_backend: str = os.environ.get("KMS_BACKEND", "file")

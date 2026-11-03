@@ -6,10 +6,10 @@
   "python": "3.11.7"
  },
  "sha256": {
-  "app/masking.py": "e085a2fb0be5518b9dd68af8c1f04de3634fbed4aa14ddcaf5f40e247adc2c1a",
-  "app/vault.py": "ccf14ce5fe69e7bb77d7a290a92ce52640d22325569a6ffd6b439008389d7c6e",
-  "app/audit.py": "49957bfdcf97025927df836cfe7378b666a767a07554778908d5950e4d045c7b",
-  "app/retention.py": "704da70a0ad18dc480665f21cd129c2cd7cdeadf3b0369eecad3b2f2133b65d7",
+  "app/masking.py": "988ceedb4696f9c525eab58454ed5d495930e5e967fbd9dc3bcb08173208d73f",
+  "app/vault.py": "5cca8f4646513b309d5d2c757bf9c5d0bb1c8b6caedc7ca2ae2e0be5e0382c30",
+  "app/audit.py": "844acb6033f244902cc796b42508bf7b36c4f3a4dee8ae5afd1dae40eacbfe26",
+  "app/retention.py": "4c6d8e540837e1b446107027bb165a4eec49dae885caa3b5695bc9d170f73c51",
   "data/samples_200.csv": "b75b552a7044f6cb217adfe90cd17a97fc9f1bb5ee1f6236f89b146799f56792",
   "data/holdout_adversarial.csv": "d99e4b8ce43c2f31a8a1695f4112ecb83c6a930a0007239206a25fa256aafec5"
  },
@@ -103,7 +103,7 @@
    "ok": true,
    "detail": {
     "1_plaintext_leaked_in_db": false,
-    "1_token": "vt_y8wbqzJWT8rqfQgykwHURG06C9",
+    "1_token": "vt_lPWcVYxKH4ESN3xGs7CD1zcyyh",
     "1_masked": "138****8000",
     "1_detokenized": "13800138000",
     "3_denied_codes": {
@@ -118,13 +118,13 @@
       3
      ],
      "missing_seq": [],
-     "tip": "a3dc23833e37c00b41212e380a981c589973dea0566f070530e74a9fa8f1ae80"
+     "tip": "325fc5bb580ca2f72395a3d934b8faecd9a0e2ddb1d6af3a2b3b493773a9aece"
     },
     "4_locate_seq3": [
      {
       "field": "content_or_hash",
-      "stored_hash": "6ffd86b8f496e6f9b3cea5af104e306c4f2b507a46fc0d0a61ddf71199a51fb1",
-      "recomputed": "5fb1715c65fef8c585424135a2d44dbdda7f7e111f1b89f6189410c038a4af6b"
+      "stored_hash": "4827c699fa13e801260e3a78cb4514c97c853fcc151d4cf54df149ea60e6ca43",
+      "recomputed": "eb1129bc664214c7820d29c69ff564d0448a577ddd66f040cfcdb74686f31f44"
      }
     ],
     "5_retention_report": {

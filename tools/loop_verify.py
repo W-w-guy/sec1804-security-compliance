@@ -36,10 +36,14 @@ DAY = 86400.0
 
 
 def new_box():
+    """每轮独立容器；有 PG_DSN 时给独立 schema（等价 sqlite 的一实例一文件）。"""
+    import uuid as _uuid
     tmp = tempfile.mkdtemp(prefix="sec1804-loop-")
     st = Settings()
     st.kms_secret = "loop-secret"
-    return Container(st, db_path=os.path.join(tmp, "l.db"), kms_dir=os.path.join(tmp, "kms"))
+    schema = "t_" + _uuid.uuid4().hex[:10] if st.pg_dsn else None
+    return Container(st, db_path=os.path.join(tmp, "l.db"),
+                     kms_dir=os.path.join(tmp, "kms"), pg_schema=schema)
 
 
 def r1(rng):

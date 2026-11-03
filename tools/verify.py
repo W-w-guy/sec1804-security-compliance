@@ -90,12 +90,19 @@ def step_masking() -> dict:
 
 
 def step_audit() -> dict:
+    from app.config import Settings
     from app.container import Container
     from app.service import CandidateService
     from app.rbac import Principal
     import tempfile
     tmp = tempfile.mkdtemp(prefix="sec1804-verify-")
-    c = Container(db_path=os.path.join(tmp, "v.db"), kms_dir=os.path.join(tmp, "kms"))
+    import uuid as _uuid
+    st = Settings()
+    # 有 PG_DSN 时必须独立 schema：否则会读到上一次运行被篡改过的行，
+    # verify 第一步就报 before_ok=false（容器里第一次跑就撞上了）
+    schema = "v_" + _uuid.uuid4().hex[:10] if st.pg_dsn else None
+    c = Container(st, db_path=os.path.join(tmp, "v.db"),
+                  kms_dir=os.path.join(tmp, "kms"), pg_schema=schema)
     svc = CandidateService(c)
     admin = Principal("adm", "admin", all_cities=True)
     for i in range(8):

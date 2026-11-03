@@ -1,13 +1,13 @@
 {
  "platform": "Linux",
- "python": "3.12.3",
+ "python": "3.12.16",
  "seed": 20261103,
  "rounds": [
   {
    "round": 1,
    "name": "unit_tests",
    "ok": true,
-   "detail": "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html"
+   "detail": ".....                                                                    [100%]"
   },
   {
    "round": 2,

@@ -6,6 +6,7 @@
 from __future__ import annotations
 import hashlib
 import json
+import threading
 import time
 from datetime import datetime, timedelta, timezone
 
@@ -21,6 +22,7 @@ class Audit:
     def __init__(self, db, settings=None):
         self.db = db
         self.settings = settings
+        self._lock = threading.RLock()
 
     # ---------- 写入 ----------
     def append(self, actor: str, role: str, action: str, target: str = "",
@@ -32,16 +34,26 @@ class Audit:
             detail_s = json.dumps(detail, ensure_ascii=False, sort_keys=True)
         else:
             detail_s = detail or ""
-        last = self.db.one("SELECT seq, hash FROM audit_log ORDER BY seq DESC LIMIT 1")
-        prev = last["hash"] if last else GENESIS
-        seq = (last["seq"] + 1) if last else 1
-        h = hashlib.sha256(_canon(prev, seq, ts, actor, role, action, target,
-                                  city, station_id, detail_s).encode()).hexdigest()
-        self.db.insert("audit_log", {
-            "seq": seq, "ts": ts, "actor": actor, "role": role, "action": action,
-            "target": target, "city": city, "station_id": station_id,
-            "detail": detail_s, "prev_hash": prev, "hash": h,
-        })
+        # "读上一行 → 算 hash → 写本行" 必须是原子段：
+        # 否则并发写会算出同一个 seq / prev_hash，插入撞 UNIQUE，数据直接丢。
+        with self._lock, self.db.serialized("audit_log"):
+            for attempt in range(6):
+                last = self.db.one("SELECT seq, hash FROM audit_log ORDER BY seq DESC LIMIT 1")
+                prev = last["hash"] if last else GENESIS
+                seq = (last["seq"] + 1) if last else 1
+                h = hashlib.sha256(_canon(prev, seq, ts, actor, role, action, target,
+                                          city, station_id, detail_s).encode()).hexdigest()
+                try:
+                    self.db.insert("audit_log", {
+                        "seq": seq, "ts": ts, "actor": actor, "role": role, "action": action,
+                        "target": target, "city": city, "station_id": station_id,
+                        "detail": detail_s, "prev_hash": prev, "hash": h,
+                    })
+                    break
+                except Exception:
+                    if attempt == 5:
+                        raise
+                    time.sleep(0.002 * (attempt + 1))   # 跨进程竞争时退避重试
         if action in WATCH_ACTIONS:
             self._check_alert(actor, action, now)
         return seq

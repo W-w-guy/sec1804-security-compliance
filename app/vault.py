@@ -54,14 +54,24 @@ class Vault:
         if row:
             return token
         version, nonce, ct = self.cipher.encrypt(item_type, value)
+        try:
+            self._insert_row(token, item_type, version, nonce, ct, now)
+        except Exception:
+            # 并发同值时另一个线程已经插进去了：token 相同，直接返回即可。
+            # （B2 轮实测：32 线程并发 tokenize 同一号码 → UNIQUE constraint failed）
+            if self.db.one("SELECT token FROM vault_items WHERE token=?", (token,)):
+                return token
+            raise
+        self.audit.append(actor, role, "vault.tokenize", target=token,
+                          detail={"type": item_type, "key_version": version}, now=now)
+        return token
+
+    def _insert_row(self, token, item_type, version, nonce, ct, now):
         self.db.insert("vault_items", {
             "token": token, "item_type": item_type, "key_version": version,
             "nonce": base64.b64encode(nonce).decode(),
             "ciphertext": base64.b64encode(ct).decode(),
             "created_at": _ts(now), "rotated_from": None})
-        self.audit.append(actor, role, "vault.tokenize", target=token,
-                          detail={"type": item_type, "key_version": version}, now=now)
-        return token
 
     def _load(self, token: str) -> dict:
         row = self.db.one("SELECT * FROM vault_items WHERE token=?", (token,))

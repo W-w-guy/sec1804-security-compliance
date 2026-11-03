@@ -9,6 +9,7 @@ import json
 import os
 import sys
 import tempfile
+import uuid
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -24,11 +25,15 @@ def demo(tmpdir: str | None = None) -> dict:
     tmp = tmpdir or tempfile.mkdtemp(prefix="sec1804-demo-")
     st = Settings()
     st.kms_secret = "demo"
-    c = Container(st, db_path=os.path.join(tmp, "demo.db"), kms_dir=os.path.join(tmp, "kms"))
+    # 有 PG_DSN 时用一次性 schema：演示不许往真库里留垃圾
+    schema = "demo_" + uuid.uuid4().hex[:10] if st.pg_dsn else None
+    c = Container(st, db_path=os.path.join(tmp, "demo.db"),
+                  kms_dir=os.path.join(tmp, "kms"), pg_schema=schema)
     svc = CandidateService(c)
     admin = Principal("adm", "admin", city="深圳", all_cities=True)
     recruiter = Principal("rec1", "recruiter", city="深圳", stations={"S1"})
-    out: dict = {"workdir": tmp}
+    out: dict = {"workdir": tmp, "dialect": c.db.dialect,
+                 "schema": getattr(c.db, "schema", "-")}
 
     # 1) tokenize / detokenize + 直查库看不到明文
     tok = c.vault.tokenize("手机号", "13800138000", "adm", "admin")["token"]
