@@ -41,6 +41,25 @@ ENV = dict(os.environ, PYTHONIOENCODING="utf-8", PYTHONUTF8="1",
 ZIP_NAME = "sec1804_sec5.zip"
 
 
+def source_dir() -> tuple[str, str | None]:
+    """确定要检验的交付物在哪。
+
+    两种合法情形（必须都能跑，否则买家换个方式拿到代码就验不了）：
+      A) 有交付 zip（交付前 / 买家解压后）→ 解压到临时目录再检；
+      B) 没有 zip，但当前目录本身就是一份完整交付物（git clone 出来的）
+         → 直接检当前目录，只跳过 zip 专属项。
+    """
+    zp = find_zip()
+    if zp:
+        tmp = tempfile.mkdtemp(prefix="h-group-")
+        with zipfile.ZipFile(zp) as z:
+            z.extractall(tmp)
+        return os.path.join(tmp, "sec1804"), zp
+    if os.path.exists(os.path.join(ROOT, "README.md")) and os.path.isdir(os.path.join(ROOT, "app")):
+        return ROOT, None
+    raise RuntimeError("既没有交付 zip，当前目录也不像一份完整交付物")
+
+
 def find_zip() -> str | None:
     """按"最可能是交付物所在位置"的顺序找 zip。
 
@@ -60,21 +79,24 @@ def find_zip() -> str | None:
     return None
 
 
-def extract() -> tuple[str, str]:
-    zp = find_zip()
-    if not zp:
-        raise RuntimeError(f"找不到 {ZIP_NAME}")
-    tmp = tempfile.mkdtemp(prefix="h-group-")
-    with zipfile.ZipFile(zp) as z:
-        z.extractall(tmp)
-    return os.path.join(tmp, "sec1804"), zp
+def extract() -> tuple[str, str | None]:
+    return source_dir()
 
 
 # ---------------- H1 zip 完整性 ----------------
 def h1(rng):
-    zp = find_zip()
+    d, zp = source_dir()
     if not zp:
-        return False, "找不到 zip"
+        junk = []
+        for dp, dn, fns in os.walk(d):
+            dn[:] = [x for x in dn if x not in ("__pycache__", ".venv", ".venv2", ".git")]
+            junk += [os.path.relpath(os.path.join(dp, f), d) for f in fns
+                     if f.endswith((".pyc", ".db")) or f == "_pytest.xml"]
+        must = ["README.md", "run.py", "Dockerfile", "docker-compose.yml",
+                "requirements.txt", "app/main.py", "tools/verify.py", "data/samples_200.csv"]
+        missing = [m for m in must if not os.path.exists(os.path.join(d, m))]
+        return (not junk and not missing), json.dumps(
+            {"mode": "directory", "junk": junk[:5], "missing": missing[:5]})
     with zipfile.ZipFile(zp) as z:
         names = z.namelist()
         bad_names = z.testzip()
