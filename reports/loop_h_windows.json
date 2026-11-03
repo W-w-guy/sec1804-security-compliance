@@ -8,7 +8,7 @@
    "round": 1,
    "name": "zip_integrity",
    "ok": true,
-   "detail": "{\"mode\": \"zip\", \"no_corrupt\": true, \"no_missing_core\": true, \"no_junk\": true, \"no_secrets\": true, \"entries\": 76, \"junk\": [], \"missing\": []}"
+   "detail": "{\"mode\": \"zip\", \"no_corrupt\": true, \"no_missing_core\": true, \"no_junk\": true, \"no_secrets\": true, \"entries\": 83, \"junk\": [], \"missing\": [], \"matches_git_head\": false, \"head_note\": \"rev=698025b7 head=76 zip=76 only_head=[] only_zip=[] diff=['.dockerignore', '.gitignore', 'CHANGELOG.md']\"}"
   },
   {
    "round": 2,

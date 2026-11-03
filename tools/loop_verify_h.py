@@ -41,6 +41,42 @@ ENV = dict(os.environ, PYTHONIOENCODING="utf-8", PYTHONUTF8="1",
 ZIP_NAME = "sec1804_sec5.zip"
 
 
+
+def _zip_matches_head(zip_path: str) -> tuple[bool | None, str]:
+    """zip 里的每个文件是否与当前 git HEAD 逐一相同。
+
+    做法是 `git show HEAD:<path>` 取权威内容再比字节，而不是读工作目录
+    （工作目录里的 reports/*.json 会因运行而变，拿它比会得出假结果）。
+    没有 git 或没有提交时返回 (None, ...)，如实标为"未能验证"，不当成通过。
+    """
+    import hashlib
+    git = shutil.which("git")
+    if not git:
+        return None, "no git"
+    r = subprocess.run([git, "rev-parse", "--verify", "HEAD"], cwd=ROOT,
+                       capture_output=True, text=True, encoding="utf-8", errors="replace")
+    if r.returncode != 0:
+        return None, "no HEAD commit"
+    rev = r.stdout.strip()[:8]
+    r2 = subprocess.run([git, "ls-tree", "-r", "--name-only", "HEAD"], cwd=ROOT,
+                        capture_output=True, text=True, encoding="utf-8", errors="replace")
+    head_files = set(r2.stdout.split())
+    with zipfile.ZipFile(zip_path) as z:
+        zip_files = {n.replace("sec1804/", "", 1) for n in z.namelist() if not n.endswith("/")}
+        only_head = sorted(head_files - zip_files)
+        only_zip = sorted(zip_files - head_files)
+        diff = []
+        for f in sorted(head_files & zip_files):
+            blob = subprocess.run([git, "show", f"HEAD:{f}"], cwd=ROOT,
+                                  capture_output=True).stdout
+            if blob != z.read("sec1804/" + f):
+                diff.append(f)
+    ok = not only_head and not only_zip and not diff
+    note = f"rev={rev} head={len(head_files)} zip={len(zip_files)}"
+    if not ok:
+        note += f" only_head={only_head[:3]} only_zip={only_zip[:3]} diff={diff[:3]}"
+    return ok, note
+
 def source_dir() -> tuple[str, str | None]:
     """确定要检验的交付物在哪。
 
@@ -109,9 +145,14 @@ def h1(rng):
                                        ("__pycache__", ".pyc", ".venv", ".kms",
                                         ".pytest_cache", ".db", "_pytest.xml", ".git/"))]
         secrets = [n for n in names if n.endswith(("keys.json", ".env", "id_rsa"))]
+        # ★ 不变量：交付包必须与某个 git commit 完全一致
+        #   否则"我交的"和"买家 clone 的"是两份不同的东西 —— 这是最隐蔽也最致命的交付问题
+        #   （实测过：从工作目录打包时，reports/*.json 每次跑都会变，导致永久不一致）
+        matches_head, head_note = _zip_matches_head(zp)
         checks = {"mode": "zip", "no_corrupt": corrupt is None, "no_missing_core": not missing,
                   "no_junk": not junk, "no_secrets": not secrets,
-                  "entries": len(names), "junk": junk[:5], "missing": missing[:5]}
+                  "entries": len(names), "junk": junk[:5], "missing": missing[:5],
+                  "matches_git_head": matches_head, "head_note": head_note}
         return all([checks["no_corrupt"], checks["no_missing_core"],
                     checks["no_junk"], checks["no_secrets"]]), json.dumps(checks, ensure_ascii=False)
 
