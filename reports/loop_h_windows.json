@@ -1,0 +1,101 @@
+{
+ "group": "H",
+ "platform": "Windows",
+ "python": "3.11.7",
+ "seed": 20261110,
+ "rounds": [
+  {
+   "round": 1,
+   "name": "zip_integrity",
+   "ok": true,
+   "detail": "{\"no_corrupt_entry\": true, \"no_missing_core\": true, \"no_junk\": true, \"no_secrets\": true, \"entries\": 76, \"junk\": [], \"missing\": []}"
+  },
+  {
+   "round": 2,
+   "name": "no_abs_paths",
+   "ok": true,
+   "detail": "{\"leaks\": [], \"count\": 0}"
+  },
+  {
+   "round": 3,
+   "name": "clean_extract_tests",
+   "ok": true,
+   "detail": "{\"rc_zero\": true, \"tests\": 90, \"failures\": 0, \"errors\": 0, \"all_green\": true}"
+  },
+  {
+   "round": 4,
+   "name": "demo_readable",
+   "ok": true,
+   "detail": "{\"rc_zero\": true, \"has_numbered_steps\": true, \"no_traceback\": true, \"key_results_present\": true, \"lines\": 17}"
+  },
+  {
+   "round": 5,
+   "name": "verify_five_steps",
+   "ok": true,
+   "detail": "{\"rc_zero\": true, \"five_steps\": true, \"no_fail\": true, \"record_written\": true, \"result_line\": true, \"passed\": 5, \"failed\": 0}"
+  },
+  {
+   "round": 6,
+   "name": "compose_valid",
+   "ok": true,
+   "detail": "{\"has_services_key\": true, \"has_volumes_key\": true, \"service_api\": true, \"service_db\": true, \"service_cache\": true, \"service_vault\": true, \"vault_profiled\": true, \"db_healthcheck\": true, \"cache_healthcheck\": true, \"api_depends_on_db\": true, \"port_overridable\": true, \"api_has_healthcheck\": true, \"compose_config_valid\": null, \"failed\": [], \"validator\": \"text-only\"}"
+  },
+  {
+   "round": 7,
+   "name": "dockerfile_static",
+   "ok": true,
+   "detail": "{\"python312\": true, \"non_root\": true, \"healthcheck\": true, \"installs_req\": true, \"pip_index_arg\": true, \"has_dockerignore\": true, \"ignores_venv\": true, \"ignores_kms\": true, \"ignores_git\": true, \"failed\": []}"
+  },
+  {
+   "round": 8,
+   "name": "readme_consistency",
+   "ok": true,
+   "detail": "{\"paths_exist\": true, \"cmds_exist\": true, \"claims_90_tests\": true, \"claims_rounds_105\": true, \"missing\": [], \"cmd_missing\": [], \"checked_paths\": 13}"
+  },
+  {
+   "round": 9,
+   "name": "openapi_doc",
+   "ok": true,
+   "detail": "{\"spec_ok\": true, \"n_paths\": 27, \"paths_at_least_20\": true, \"claimed_numbers\": [\"27\"]}"
+  },
+  {
+   "round": 10,
+   "name": "first_boot",
+   "ok": true,
+   "detail": "{\"kms_autocreated\": true, \"roundtrip_ok\": true, \"mode\": \"0o666\", \"mode_note\": \"Windows \\u65e0 POSIX \\u6743\\u9650\\u4f4d\\uff0c\\u4e0d\\u5224\"}"
+  },
+  {
+   "round": 11,
+   "name": "version_traceable",
+   "ok": true,
+   "detail": "{\"version_in_init\": true, \"main_refs_single_source\": true, \"main_has_no_duplicate_literal\": true, \"version_in_readme\": true, \"has_changelog\": true, \"version\": \"0.1.0\"}"
+  },
+  {
+   "round": 12,
+   "name": "sample_usable",
+   "ok": true,
+   "detail": "{\"rows_ge_200\": true, \"has_columns\": true, \"expect_is_json\": true, \"has_negative_samples\": true, \"synthetic_only\": true, \"rows\": 228, \"bad_json\": 0}"
+  },
+  {
+   "round": 13,
+   "name": "diagnosable_errors",
+   "ok": true,
+   "detail": "{\"401_hint\": true, \"bad_type_hint\": true, \"empty_hint\": true, \"no_traceback\": true}"
+  },
+  {
+   "round": 14,
+   "name": "clean_shutdown",
+   "ok": true,
+   "detail": "{\"no_thread_leak\": true, \"before\": 1, \"after\": 1}"
+  },
+  {
+   "round": 15,
+   "name": "delivery_inventory",
+   "ok": true,
+   "detail": "{\"missing\": [], \"total\": 13}"
+  }
+ ],
+ "passed": 15,
+ "failed": 0,
+ "skipped": []
+}

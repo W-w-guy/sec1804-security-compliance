@@ -8,7 +8,7 @@
  "sha256": {
   "app/masking.py": "772ed873812c447cf3c192348008cf3abfb987c3e14be0d52fd583aa0f6086de",
   "app/vault.py": "dbf630f9a625d7af5b4592b5f62a2fc2eaf7df41ab96ebd1b7afe0759d13a039",
-  "app/audit.py": "066e58e8a44fe4c83d5b39c6131f4297d05e1ac1c6cbc72d09dfc7780551e6af",
+  "app/audit.py": "3bc1755017dd5d2a29b85f4aa8cb4d18114df231e6e5ab6aa824f0127e82be2d",
   "app/retention.py": "f2db867214f0e3b5002b5d9cbfa3fa444e08182c57644273d1c4761880857ee4",
   "data/samples_200.csv": "b75b552a7044f6cb217adfe90cd17a97fc9f1bb5ee1f6236f89b146799f56792",
   "data/holdout_adversarial.csv": "d99e4b8ce43c2f31a8a1695f4112ecb83c6a930a0007239206a25fa256aafec5"
@@ -118,13 +118,13 @@
       3
      ],
      "missing_seq": [],
-     "tip": "0b4220528f3eebd66bdf0ba612687a2229710c8422cd11e45497b632b91fe101"
+     "tip": "d61d0210a720fbf2d938e9804792400da5afcc7f679514835e20ae6add056c50"
     },
     "4_locate_seq3": [
      {
       "field": "content_or_hash",
-      "stored_hash": "0cbce9c73380dafd62e6a98e86385fe0f96af26a214e1896e90275f8225f62d0",
-      "recomputed": "15c850f31493818ee986f43b0664a72058c5b85a8f515c5ae1c60621a78d5fbb"
+      "stored_hash": "2d2e9bed64072a6bed9c35840a14b9d837972f5243f8c1b6012e9142602cd487",
+      "recomputed": "6c5e01c1b8b627a2883dc2b7d303e6d1c945892e281fd52ea6c774112bdfad20"
      }
     ],
     "5_retention_report": {

@@ -45,6 +45,8 @@ tools/
 data/
   samples_200.csv          228 条合成样本（200 主体 + 边界）
   holdout_adversarial.csv  38 条人工对抗样本（不参与调参，只用来说实话）
+CHANGELOG.md   变化与验证结论
+.dockerignore  构建上下文裁剪
 reports/
   verify_windows.json / verify_linux.json / dep_scan.json / OWASP_TOP10.md
 ```
@@ -318,7 +320,7 @@ D 组结果: 15/15 通过
 | 3 | **list 无分页** | 1 万候选人时一次返回几十 MB | `limit/offset`，上限 500，越界 422 |
 | 4 | **契约的 outbox 事件缺失** | 下游无法可靠消费状态变更 | 补 `outbox` 表 + HMAC-SHA256 签名 + `/api/v1/outbox` 拉取/确认；consent 变更自动发事件 |
 
-## 累计：三轮专项 + 四组共 50 轮
+## 阶段小结（当时已完成 C/D 两组）
 
 | 组 | 主题 | Windows | Ubuntu（容器，真 PG16 + 真 Vault 1.18） |
 |---|---|---|---|
@@ -406,7 +408,73 @@ F 组结果: 15/15 通过
 > 第 1 条是这轮最危险的发现。它不报错、不告警，**数据看起来还能读**，
 > 但其实是拿错密钥在解。等真正发现时，可能已经把用新密钥加密的数据混进去了。
 
-## 累计：六组共 80 轮
+## 第七轮：G 组 15 轮 · 性能与容量
+
+前六组证明"对不对"，G 组问"**撑不撑得住**"。方法不是测某个绝对值（绝对值随机器变），
+而是**测 3~4 个量级、拟合增长阶**——增长阶不会骗人。
+
+```
+[PASS] G1  create_throughput     100/500/2000 条：5.4 / 5.6 / 5.6 ms/条  → 线性（O(n)）
+[PASS] G2  read_latency          100/500/2000 条：1.51 / 1.49 / 1.57 ms/次 → 与量级无关
+[PASS] G3  list_paging           3000 条：首页 0.076s / 深页 0.079s / 游标 0.078s
+[PASS] G4  export_throughput     200→1000 条：0.69 ms/行 保持恒定
+[PASS] G5  audit_append          500/2000/5000 行：0.74 / 0.70 / 0.73 ms/行 → 线性
+[PASS] G6  audit_verify_order    500/2000/5000 行：3ms / 13ms / 22ms → 线性，**不是 O(n²)**
+[PASS] G7  audit_query           5000 行：按主体 0.00s / 按动作 0.01s
+[PASS] G8  retention_scale       200/1000 条：1.93 ms/条 恒定
+[PASS] G9  mask_throughput       1KB/10KB/100KB：442 / 528 / 500 KB/s（分块后吞吐持平）
+[PASS] G10 kms_throughput        42,672 次加密/s、78,179 次解密/s
+[PASS] G11 concurrent_read       单线程 605 ops/s；8 线程 771 ops/s，链完整、每次读都有审计
+[PASS] G12 concurrent_write      8 线程 × 20 条：160/160 落库，0 错误，链完整
+[PASS] G13 memory_growth         3000 条候选人：RSS 增量 **0.0 MB**
+[PASS] G14 deep_paging           2000 条深页：0.076s vs 首页 0.076s（ratio 1.0）
+[PASS] G15 capacity_limits       超批量/超字段明确拒绝；上限内正常
+G 组结果: 15/15 通过（Ubuntu 容器，真 PostgreSQL 16）
+```
+
+### G 组挖出的 1 个真缺陷 + 1 个架构事实
+
+| # | 发现 | 后果 | 处理 |
+|---|---|---|---|
+| 1 | **全局锁把并发读吃掉了** | 8 线程并发读只有 1.18 倍加速；单线程 1142 ops/s | `DB` 改成**每线程独立连接** + sqlite WAL + busy_timeout；去掉读写路径上的进程级锁；`Audit.append` 改为乐观重试（12 次带抖动退避）。单线程升到 3432 ops/s |
+| 2 | **读吞吐被审计写封顶（架构事实，不是 bug）** | 8 线程加速比稳定在 1.3 左右，无法线性扩展 | 契约要求"查看必须全量记录审计"，每次读都要写一条审计；这是"读必留痕"的必然代价。**如实记录**，并给出扩展路径（按 actor 哈希分表 / 异步 outbox 批量落盘，代价是出现"先返回后落盘"的时间窗）。本模块选择同步落盘换可追溯性 |
+
+> 第 1 条改的是**存储层连接模型**，是整个项目风险最大的一次重构。
+> 改完把 A~F 六组全部重跑了一遍确认没打坏 —— 这是重构后必须做的事，不是可选项。
+
+## 第八轮：H 组 15 轮 · 交付形态
+
+前面七组证明"东西是好的"。H 组问"**别人能不能自己用起来**"——干净机器一条命令起不来，
+前面 105 轮全白做。全部按买家/验收人立场检验。
+
+```
+[PASS] H1  zip_integrity         73 条目，无损坏、无 __pycache__/.venv/.kms/.db/密钥残留
+[PASS] H2  no_abs_paths          源码与文档里 0 处本机绝对路径（E:\ / /home/xxx / C:\Users）
+[PASS] H3  clean_extract_tests   **全新解压**后一条命令：90 tests / 0 fail / 0 error
+[PASS] H4  demo_readable         demo 输出 17 行、有编号步骤、无 traceback、关键结论齐全
+[PASS] H5  verify_five_steps     5 步全 PASS，记录落盘，末行 "ALL PASS"
+[PASS] H6  compose_valid         服务齐全、Vault 在 profile、db/cache 有 healthcheck、端口可覆盖
+[PASS] H7  dockerfile_static     python:3.12 / 非 root / HEALTHCHECK / 有 .dockerignore
+[PASS] H8  readme_consistency    README 里 13 个路径与 4 条命令全部真实存在（含目录树裸文件名）
+[PASS] H9  openapi_doc           OpenAPI 27 条路径可访问
+[PASS] H10 first_boot            无 .kms 目录也能起，密钥自建且加解密往返成功
+[PASS] H11 version_traceable     版本单一来源（app/__init__.py），main.py 引用而非重复写字面量
+[PASS] H12 sample_usable         228 条样本，标注全部是合法 JSON，含负例
+[PASS] H13 diagnosable_errors    401/类型错/空值都给可操作提示，无 traceback
+[PASS] H14 clean_shutdown        5 次启停后线程数不增（无泄漏）
+[PASS] H15 delivery_inventory    交付清单 13 项全部在包里
+H 组结果: 15/15 通过
+```
+
+### H 组挖出的 3 个真缺口（全部已补）
+
+| # | 缺口 | 后果 | 补法 |
+|---|---|---|---|
+| 1 | **没有 CHANGELOG / 版本两处各写一遍** | 买家无法追溯"这一版改了什么"；版本迟早不同步 | 加 `CHANGELOG.md`；`main.py` 改为 `from app import __version__` 单一来源 |
+| 2 | **没有 .dockerignore** | `docker build` 会把 .venv / .kms / .git 打进构建上下文 —— 可能把密钥打进镜像层 | 新增 `.dockerignore`，H7 校验它确实忽略了 venv/kms/git |
+| 3 | **记录落盘失败会让验证假红** | 容器里 `reports/` 属主是 root，脚本跑完全部轮次却因写文件失败 rc=1 → 看起来像验证没过 | 所有轮次脚本改为 `_safe_write_report()`：落盘失败只警告，**不影响结论与退出码** |
+
+## 累计：八组共 105 轮
 
 | 组 | 主题 | Windows 11 / Py3.11.7 | Ubuntu 容器（真 PG16 + 真 Vault 1.18） |
 |---|---|---|---|
@@ -419,9 +487,12 @@ F 组结果: 15/15 通过
 | E（15 轮） | 并发正确性与接口边界 | 15/15 | 15/15 |
 | F（15 轮） | 可运维性与可审计性 | 14/15 + 1 skip（Windows 无 POSIX 权限位） | **15/15** |
 
+
 > 双平台合计暴露 **29 个缺陷**（B 组 6、C 组 8、D 组 4、E 组 3、F 组 6，另有若干测试自身缺陷），
 > 全部修完复跑。其中 **14 个只有单平台或真实部署环境能看见**。
 > **每一组的"跳过"都明确标注且不计为通过** —— 假绿比红更危险。
+
+
 
 ## 与契约 v1 的对齐点
 

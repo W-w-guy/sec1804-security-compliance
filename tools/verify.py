@@ -151,6 +151,23 @@ def step_license() -> dict:
             "cmd": "python tools/dep_scan.py --json"}
 
 
+
+def _safe_write_report(path: str, obj) -> str:
+    """写记录文件失败（只读挂载 / 权限不足）只警告，**不影响结论与退出码**。
+
+    起因：容器里 docker cp 过来的 reports/ 属主是 root，appuser 写不进去，
+    结果是"所有轮次都跑完、结论都对，但脚本因为写文件失败而 rc=1" ——
+    结论比落盘重要，落盘失败不该让人误以为验证没过。
+    """
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(obj, fh, ensure_ascii=False, indent=1)
+        return "ok"
+    except Exception as e:                          # noqa: BLE001
+        print(f"\n[WARN] 记录未能落盘（{type(e).__name__}: {e}）—— 结论以上文输出为准")
+        return f"failed:{type(e).__name__}"
+
 def main() -> int:
     steps = [step_tests(), step_masking(), step_audit(), step_demo(), step_license()]
     ok = all(s["ok"] for s in steps)
@@ -165,8 +182,7 @@ def main() -> int:
     }
     os.makedirs(os.path.join(HERE, "reports"), exist_ok=True)
     name = f"verify_{platform.system().lower()}.json"
-    with open(os.path.join(HERE, "reports", name), "w", encoding="utf-8") as fh:
-        json.dump(record, fh, ensure_ascii=False, indent=1)
+    _safe_write_report(os.path.join(HERE, "reports", name), record)
     if "--json" in sys.argv:
         print(json.dumps(record, ensure_ascii=False, indent=1))
     else:

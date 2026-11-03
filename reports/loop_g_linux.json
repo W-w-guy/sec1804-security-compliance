@@ -1,0 +1,101 @@
+{
+ "group": "G",
+ "platform": "Linux",
+ "python": "3.12.16",
+ "seed": 20261109,
+ "rounds": [
+  {
+   "round": 1,
+   "name": "create_throughput",
+   "ok": true,
+   "detail": "{\"100\": {\"total_s\": 0.54, \"per_ms\": 5.392, \"per_sec\": 185.5}, \"500\": {\"total_s\": 2.79, \"per_ms\": 5.58, \"per_sec\": 179.2}, \"2000\": {\"total_s\": 11.11, \"per_ms\": 5.553, \"per_sec\": 180.1}, \"growth\": {\"order\": 1.0, \"t_ratios\": [5.17, 3.98], \"n_ratios\": [5.0, 4.0]}}"
+  },
+  {
+   "round": 2,
+   "name": "read_latency",
+   "ok": true,
+   "detail": "{\"100\": {\"ms_per_read\": 1.512}, \"500\": {\"ms_per_read\": 1.492}, \"2000\": {\"ms_per_read\": 1.569}, \"growth\": {\"order\": 1.0, \"t_ratios\": [0.99, 1.05], \"n_ratios\": [5.0, 4.0]}}"
+  },
+  {
+   "round": 3,
+   "name": "list_paging",
+   "ok": true,
+   "detail": "{\"first_page_fast\": true, \"deep_offset_slow_or_ok\": true, \"cursor_not_worse_than_offset\": true, \"first_s\": 0.076, \"deep_offset_s\": 0.081, \"cursor_s\": 0.073, \"N\": 3000}"
+  },
+  {
+   "round": 4,
+   "name": "export_throughput",
+   "ok": true,
+   "detail": "{\"200\": {\"s\": 0.14, \"bytes\": 17529, \"ms_per_row\": 0.692}, \"1000\": {\"s\": 0.69, \"bytes\": 87930, \"ms_per_row\": 0.689}}"
+  },
+  {
+   "round": 5,
+   "name": "audit_append",
+   "ok": true,
+   "detail": "{\"500\": {\"total_s\": 0.37, \"per_ms\": 0.737}, \"2000\": {\"total_s\": 1.41, \"per_ms\": 0.704}, \"5000\": {\"total_s\": 3.7, \"per_ms\": 0.741}, \"growth\": {\"order\": 1.0, \"t_ratios\": [3.82, 2.63], \"n_ratios\": [4.0, 2.5]}}"
+  },
+  {
+   "round": 6,
+   "name": "audit_verify_order",
+   "ok": true,
+   "detail": "{\"500\": {\"verify_s\": 0.003, \"rows\": 500, \"ok\": true, \"us_per_row\": 5.3}, \"2000\": {\"verify_s\": 0.013, \"rows\": 2000, \"ok\": true, \"us_per_row\": 6.7}, \"5000\": {\"verify_s\": 0.026, \"rows\": 5000, \"ok\": true, \"us_per_row\": 5.2}, \"growth\": {\"order\": 1.0, \"t_ratios\": [5.08, 1.92], \"n_ratios\": [4.0, 2.5]}}"
+  },
+  {
+   "round": 7,
+   "name": "audit_query",
+   "ok": true,
+   "detail": "{\"by_actor_found\": true, \"by_action_found\": true, \"by_actor_fast\": true, \"by_action_fast\": true, \"tail_fast\": true, \"by_actor_s\": 0.001, \"by_action_s\": 0.019, \"tail_s\": 0.0, \"N\": 5000}"
+  },
+  {
+   "round": 8,
+   "name": "retention_scale",
+   "ok": true,
+   "detail": "{\"200\": {\"s\": 0.39, \"deleted\": 200, \"ms_per_row\": 1.934}, \"1000\": {\"s\": 1.94, \"deleted\": 1000, \"ms_per_row\": 1.94}}"
+  },
+  {
+   "round": 9,
+   "name": "mask_throughput",
+   "ok": true,
+   "detail": "{\"1000\": {\"ms\": 2.2, \"kb_per_s\": 442.3}, \"10000\": {\"ms\": 18.5, \"kb_per_s\": 527.5}, \"100000\": {\"ms\": 183.3, \"kb_per_s\": 532.8}, \"throughput_ratio\": 1.2}"
+  },
+  {
+   "round": 10,
+   "name": "kms_throughput",
+   "ok": true,
+   "detail": "{\"enc_per_sec\": 42671.9, \"dec_per_sec\": 78179.0, \"enc_fast\": true, \"dec_fast\": true}"
+  },
+  {
+   "round": 11,
+   "name": "concurrent_read",
+   "ok": true,
+   "detail": "{\"single_thread_ok\": true, \"no_slowdown_at_8\": true, \"chain_intact_under_concurrency\": true, \"every_read_audited\": true, \"1\": {\"ops\": 100, \"s\": 0.164, \"ops_per_s\": 611.4}, \"4\": {\"ops\": 400, \"s\": 0.517, \"ops_per_s\": 773.5}, \"8\": {\"ops\": 800, \"s\": 1.063, \"ops_per_s\": 752.4}, \"speedup_8x\": 1.23, \"dialect\": \"pg\", \"floor_ops_per_s\": 400, \"bottleneck\": \"读必留痕 → 每次读都要写一条审计；sqlite 单写者 / PG 两次往返，读吞吐因此被审计写封顶\", \"scale_path\": \"PG 上可按 (actor) 哈希分表或改用异步 outbox 批量落盘（需接受『先返回后落盘』的时间窗）；本模块选择同步落盘换取可追溯性\"}"
+  },
+  {
+   "round": 12,
+   "name": "concurrent_write",
+   "ok": true,
+   "detail": "{\"no_errors\": true, \"all_rows\": true, \"chain_ok\": true, \"ops_per_s\": 201.4, \"errors\": []}"
+  },
+  {
+   "round": 13,
+   "name": "memory_growth",
+   "ok": true,
+   "detail": "{\"rss_before_mb\": 52.2, \"rss_after_mb\": 52.2, \"delta_mb\": 0.0}"
+  },
+  {
+   "round": 14,
+   "name": "deep_paging",
+   "ok": true,
+   "detail": "{\"first_s\": 0.0761, \"deep_s\": 0.0788, \"ratio\": 1.0, \"N\": 2000}"
+  },
+  {
+   "round": 15,
+   "name": "capacity_limits",
+   "ok": true,
+   "detail": "{\"over_limit_rejected\": true, \"within_limit_ok\": true, \"field_limit_rejected\": true, \"detail\": \"Forbidden\"}"
+  }
+ ],
+ "passed": 15,
+ "failed": 0,
+ "skipped": []
+}
