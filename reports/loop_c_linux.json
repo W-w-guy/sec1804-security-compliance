@@ -1,0 +1,100 @@
+{
+ "group": "C",
+ "platform": "Linux",
+ "python": "3.12.16",
+ "seed": 20261105,
+ "rounds": [
+  {
+   "round": 1,
+   "name": "jwt_forgery",
+   "ok": true,
+   "detail": "{\"valid_token_ok\": true, \"alg_none_rejected\": true, \"payload_tamper_rejected\": true, \"wrong_key_rejected\": true, \"expired_rejected\": true, \"no_bearer_rejected_5\": true, \"no_bearer_rejected_6\": true, \"no_bearer_rejected_7\": true, \"no_bearer_rejected_8\": true, \"unknown_role_rejected\": true}"
+  },
+  {
+   "round": 2,
+   "name": "sql_injection",
+   "ok": true,
+   "detail": "{\"no_crash\": true, \"no_table_dropped\": true, \"audit_intact\": true, \"tables_present\": true, \"crashed\": []}"
+  },
+  {
+   "round": 3,
+   "name": "idor",
+   "ok": true,
+   "detail": "{\"cross_city_blocked\": true, \"full_read_blocked\": true, \"list_scoped\": true, \"concurrent_no_leak\": true, \"nonexistent_404\": true}"
+  },
+  {
+   "round": 4,
+   "name": "mass_assignment",
+   "ok": true,
+   "detail": "{\"failed\": [], \"checks\": 8}"
+  },
+  {
+   "round": 5,
+   "name": "mask_bypass",
+   "ok": true,
+   "detail": "{\"failed\": [], \"checks\": 12}"
+  },
+  {
+   "round": 6,
+   "name": "plaintext_leak",
+   "ok": true,
+   "detail": "{\"error_no_plaintext\": true, \"audit_detail_no_plaintext\": true, \"db_dump_no_plaintext\": true, \"db_dump_no_name\": true, \"masked_only\": true, \"export_masked_no_plaintext\": true}"
+  },
+  {
+   "round": 7,
+   "name": "token_enum_timing",
+   "ok": true,
+   "detail": "{\"random_guess_zero_hit\": true, \"no_prefix_collision\": true, \"token_len_ok\": true, \"uses_compare_digest\": true, \"token_is_hmac_derived\": true, \"stable_and_distinct\": true, \"token_not_base64_of_value\": true}"
+  },
+  {
+   "round": 8,
+   "name": "approval_bypass",
+   "ok": true,
+   "detail": "{\"fake_approval_blocked\": true, \"non_admin_cannot_decide\": true, \"cross_action_reuse_blocked\": true, \"approval_single_use_under_concurrency\": true, \"blank_reason_rejected\": true, \"double_spend_ok\": 1}"
+  },
+  {
+   "round": 9,
+   "name": "audit_integrity",
+   "ok": true,
+   "detail": "{\"no_delete_verb_on_audit\": true, \"no_put_verb_on_audit\": true, \"tamper_located\": true, \"locate_has_fields\": true, \"delete_detected\": true, \"truncation_detected\": true}"
+  },
+  {
+   "round": 10,
+   "name": "malformed_input",
+   "ok": true,
+   "detail": "{\"1mb_body_handled\": true, \"deep_json_handled\": true, \"type_err_2858\": true, \"type_err_7398\": true, \"type_err_1261\": true, \"type_err_2946\": true, \"nan_handled\": true, \"missing_value_422\": true, \"wrong_content_type_handled\": true}"
+  },
+  {
+   "round": 11,
+   "name": "headers_exposure",
+   "ok": true,
+   "detail": "{\"no_server_version_leak\": true, \"no_x_powered_by\": true, \"err_no_traceback\": true, \"framework_404_no_detail_leak\": true, \"security_headers_present\": true, \"missing_headers\": []}"
+  },
+  {
+   "round": 12,
+   "name": "bruteforce_rate",
+   "ok": true,
+   "detail": "{\"no_success_in_bruteforce\": true, \"denied_attempts_audited\": true, \"no_2xx_in_bruteforce\": true, \"rate_limited\": true, \"ratelimit_is_audited\": true, \"requests\": 60, \"seconds\": 0.15}"
+  },
+  {
+   "round": 13,
+   "name": "credential_hygiene",
+   "ok": true,
+   "detail": "{\"no_hardcoded_secrets\": true, \"no_print_of_value\": true, \"jwt_secret_from_env\": true, \"kms_key_not_in_db_dump\": true, \"no_key_column_in_vault\": true, \"hits\": []}"
+  },
+  {
+   "round": 14,
+   "name": "deps_license",
+   "ok": true,
+   "detail": "{\"no_denied_license\": true, \"no_unknown_license\": true, \"deps_scanned\": true, \"pinned_versions\": true, \"deps\": 19, \"note\": \"CVE 需要联网查询（osv.dev / GitHub Advisory）；本机离线，未做 CVE 比对，如实标注\"}"
+  },
+  {
+   "round": 15,
+   "name": "attack_chain",
+   "ok": true,
+   "detail": "{\"outbound_has_no_pii\": true, \"read_is_masked\": true, \"privilege_escalation_blocked\": true, \"tokens_do_not_encode_plaintext\": true, \"chain_is_audited\": true, \"leaked_fields\": []}"
+  }
+ ],
+ "passed": 15,
+ "failed": 0
+}

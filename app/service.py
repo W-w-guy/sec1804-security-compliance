@@ -14,6 +14,14 @@ def _iso(t: float) -> str:
     return datetime.fromtimestamp(t, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+# 谁能设置"特权字段"（C4 轮实测：客户端可以自己把 status 设成 hired，
+# 于是保留期从 90 天跳到 180 天 —— 这就是用接口绕过数据最小化）。
+PRIVILEGED_STATUS = {"hired", "rejected", "handoff"}
+INITIAL_STATUS = {"new", "collecting", "complete", "booked", "interviewed"}
+SERVER_ONLY_FIELDS = ("consent_version", "consent_at", "consent_channel",
+                      "retention_until", "anonymized_at", "name_token", "phone_token")
+
+
 class CandidateService:
     def __init__(self, c):
         self.c = c
@@ -24,9 +32,34 @@ class CandidateService:
         now = time.time() if now is None else now
         city, station = data.get("city"), data.get("station_id")
         enforce_scope(p, city, station)
+        # ---- 批量赋值防护：只接受该由客户端决定的字段 ----
+        clean = {k: v for k, v in data.items() if k not in SERVER_ONLY_FIELDS}
+        status = clean.get("status", "new")
+        if status in PRIVILEGED_STATUS and p.role not in ("admin", "ops"):
+            self.c.audit.append(p.actor, p.role, "candidate.create.denied", target="*",
+                                city=city, station_id=station,
+                                detail={"cause": "privileged_status", "status": status}, now=now)
+            raise Forbidden(f"角色 {p.role} 不能把状态直接置为 {status}", code="privilege_required")
+        if status not in INITIAL_STATUS | PRIVILEGED_STATUS:
+            raise Forbidden(f"非法状态: {status}", code="invalid_status")
+        if clean.get("is_minor") and p.role not in ("admin", "ops"):
+            self.c.audit.append(p.actor, p.role, "candidate.create.denied", target="*",
+                                city=city, station_id=station,
+                                detail={"cause": "is_minor_set_by_client"}, now=now)
+            raise Forbidden("未成年人标记须由校核流程写入，客户端不可自设", code="privilege_required")
+        data = clean
         cid = str(uuid.uuid4())
-        name_token = self.c.vault.tokenize("name", data["name"], p.actor, p.role, now)["token"]
-        phone_token = self.c.vault.tokenize("phone", data["phone"], p.actor, p.role, now)["token"]
+        # 先记下本次写入的 token：中途失败要能回滚，否则会留下"库里有一行密文、
+        # 但没有对应候选人"的孤儿（D6 轮实测：candidates +0，vault_items +1）。
+        created_tokens: list[str] = []
+        try:
+            name_token = self.c.vault.tokenize("name", data["name"], p.actor, p.role, now)["token"]
+            created_tokens.append(name_token)
+            phone_token = self.c.vault.tokenize("phone", data["phone"], p.actor, p.role, now)["token"]
+            created_tokens.append(phone_token)
+        except Exception:
+            self._rollback_tokens(created_tokens)
+            raise
         status = data.get("status", "new")
         days = self.c.settings.retain_hired_days if status == "hired" else self.c.settings.retain_not_hired_days
         row = {
@@ -41,10 +74,27 @@ class CandidateService:
             "retention_until": _iso(now + days * DAY),
             "anonymized_at": None, "created_at": _iso(now), "updated_at": _iso(now),
         }
-        self.c.db.insert("candidates", row)
-        self.c.audit.append(p.actor, p.role, "candidate.create", target=cid, city=city,
-                            station_id=station, detail={"status": status}, now=now)
+        try:
+            self.c.db.insert("candidates", row)
+            self.c.audit.append(p.actor, p.role, "candidate.create", target=cid, city=city,
+                                station_id=station, detail={"status": status}, now=now)
+        except Exception:
+            # 业务行写不进 / 审计写不进 → 整笔撤销，绝不留下无痕数据
+            try:
+                self.c.db.execute("DELETE FROM candidates WHERE id=?", (cid,))
+            except Exception:                       # noqa: BLE001
+                pass
+            self._rollback_tokens(created_tokens)
+            raise
         return self.view(p, cid, now=now)
+
+    def _rollback_tokens(self, tokens: list[str]) -> None:
+        """补偿删除本次新建的 vault 行（只删本次新增的，不碰别人已经在用的）。"""
+        for t in tokens:
+            try:
+                self.c.db.execute("DELETE FROM vault_items WHERE token=?", (t,))
+            except Exception:                       # noqa: BLE001
+                pass
 
     # ---------- 读取（默认掩码） ----------
     def _load(self, cid: str) -> dict:
@@ -87,10 +137,21 @@ class CandidateService:
         return self.c.vault.detokenize(token, why, p, now=now)["value"]
 
     # ---------- 列表 / 导出 ----------
-    def list(self, p: Principal, now: float | None = None) -> list[dict]:
+    def list(self, p: Principal, now: float | None = None,
+             limit: int | None = None, offset: int = 0) -> list[dict]:
+        """按范围列出候选人，支持分页。
+
+        为什么要分页：D10 轮实测 500 条时一次全返回 0.4 秒，1 万条就是 8 秒级、
+        响应体几十 MB —— 对客户端和内存都是风险，也没法给前端做无限滚动。
+        """
         require(p, "candidate.read.masked")
         out = []
-        for row in self.c.db.query("SELECT id, city, station_id FROM candidates ORDER BY created_at"):
+        sql = "SELECT id, city, station_id FROM candidates ORDER BY created_at"
+        params: tuple = ()
+        if limit is not None:
+            sql += " LIMIT ? OFFSET ?"
+            params = (int(limit), int(offset))
+        for row in self.c.db.query(sql, params):
             from app.rbac import in_scope
             if in_scope(p, row.get("city"), row.get("station_id")):
                 out.append(self.view(p, row["id"], now=now))

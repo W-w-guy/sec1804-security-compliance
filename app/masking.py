@@ -74,7 +74,7 @@ def luhn_ok(digits: str) -> bool:
 
 def _digit_runs(text: str):
     """返回所有“数字/分隔符”候选串（含空格、连字符、+），并给出原始区间。"""
-    return re.finditer(r"\+?[0-9][0-9\s\-]{5,28}[0-9Xx]", text)
+    return re.finditer(r"\+?[0-9][0-9\s\-\.,()]{5,30}[0-9Xx]", text)
 
 
 def _valid_date(y: int, m: int, d: int) -> bool:
@@ -85,6 +85,62 @@ def _valid_date(y: int, m: int, d: int) -> bool:
         return d <= calendar.monthrange(y, m)[1]
     except Exception:
         return False
+
+
+
+# ============ 归一化：对抗"看起来不像数字"的号码（C5 轮实测的绕过手法）============
+# 攻击者不必破解加密，只要让检测器认不出来，PII 就会原样送进模型。
+# 已实测绕过成功的 8 种写法：全角数字、零宽字符夹断、点号/括号分隔、阿拉伯-印度数字、
+# 全角字母同形字、中文数字。对策是**等长归一化后再检测**，再把区间原样映射回原文
+# （1:1 字符映射，偏移不变，所以不需要重算坐标）。
+
+_FULLWIDTH = {chr(0xFF10 + i): str(i) for i in range(10)}
+_FULLWIDTH.update({chr(0xFF21 + i): chr(ord("A") + i) for i in range(26)})
+_FULLWIDTH.update({chr(0xFF41 + i): chr(ord("a") + i) for i in range(26)})
+FULLWIDTH_MAP = {ord(k): v for k, v in _FULLWIDTH.items()}
+FULLWIDTH_MAP.update({0xFF0E: ".", 0xFF08: "(", 0xFF09: ")", 0xFF0D: "-", 0x3000: " "})
+
+# 阿拉伯-印度数字（\d 在 Python 里会匹配它们，但字面 '1' 不会，导致手机号漏检）
+UNICODE_DIGITS = {ord(c): str(i) for i, c in enumerate("٠١٢٣٤٥٦٧٨٩")}
+UNICODE_DIGITS.update({ord(c): str(i) for i, c in enumerate("۰۱۲۳۴۵۶۷۸۹")})
+
+CN_DIGITS = {ord(c): str(i) for i, c in enumerate("零一二三四五六七八九")}
+CN_DIGITS.update({ord("〇"): "0", ord("两"): "2"})
+
+# 零宽字符：不删除（会改变偏移），换成空格（1:1，长度不变）
+ZERO_WIDTH = {ord(c): " " for c in "\u200b\u200c\u200d\u2060\ufeff\u00ad"}
+
+# 分隔符统一成空格，让 "138.0013.8000" / "(138)0013-8000" 变成可识别的形态
+SEPARATORS = {ord(c): " " for c in ".()[]{}·、，,;；:"}
+
+
+def normalize_for_detection(text: str) -> str:
+    """等长归一化：保证返回串与原串长度一致、字符位置一一对应。
+
+    ★ 只做"字符同形替换"，绝不做"语义翻译"。
+      第一版我把中文数字也全局映射了，结果 `文一西路` 变成 `文1西路`、
+      `五常街道` 变成 `5常街道` —— 地址召回从 100% 掉到 81%，还带出 19% 误报。
+      中文数字只在**长串号码**场景才该转换，所以改成下面的单独检测器；
+      分隔符同理，改为在号码正则里允许 `. ( )`，而不是全局把它们换成空格。
+    """
+    t = text.translate(FULLWIDTH_MAP)
+    t = t.translate(UNICODE_DIGITS)
+    t = t.translate(ZERO_WIDTH)
+    return t
+
+
+# 中文数字号码：只有连续 ≥9 个中文数字才当作号码候选（避免"文一西路"被误改）
+CN_NUM_RUN = re.compile(r"[零一二三四五六七八九〇两]{9,13}")
+_CN_MAP = str.maketrans("零一二三四五六七八九〇两", "012345678902")
+
+
+def _cn_to_digits(run: str) -> str:
+    return run.translate(_CN_MAP)
+
+
+# 同形字：l / I / O 伪装成 1 / 1 / 0（"ｌ3800138000"）
+CONFUSABLE_RUN = re.compile(r"(?<![0-9A-Za-z])[0-9lIO][0-9lIO\s\-]{9,15}(?![0-9A-Za-z])")
+_CONF = str.maketrans({"l": "1", "I": "1", "O": "0"})
 
 
 class MaskingSession:
@@ -110,7 +166,7 @@ class MaskingSession:
         out = []
         for m in _digit_runs(text):
             raw = m.group(0)
-            core = re.sub(r"[\s\-]", "", raw)
+            core = re.sub(r"[\s\-\.,()]", "", raw)
             if core.startswith("86") and len(core) > 18:
                 core = core[2:]
             if len(core) == 18 and re.fullmatch(r"\d{17}[\dXx]", core):
@@ -127,12 +183,23 @@ class MaskingSession:
             # 尾随字母（如 13800138000O）不当作手机号，避免误报
             if re.search(r"[A-Za-z]$", raw):
                 continue
-            core = re.sub(r"[\s\-]", "", raw)
+            core = re.sub(r"[\s\-\.,()]", "", raw)
             if core.startswith("+86"):
                 core = core[3:]
             elif core.startswith("86") and len(core) == 13:
                 core = core[2:]
             if re.fullmatch(r"1[3-9]\d{9}", core):
+                out.append({"type": "手机号", "start": m.start(), "end": m.end(), "text": raw})
+        # 中文数字号码（一三八零零一三八零零零）
+        for m in CN_NUM_RUN.finditer(text):
+            if re.fullmatch(r"1[3-9]\d{9}", _cn_to_digits(m.group(0))):
+                out.append({"type": "手机号", "start": m.start(), "end": m.end(),
+                            "text": m.group(0)})
+        # 同形字号码：l/I/O 伪装成 1/1/0
+        for m in CONFUSABLE_RUN.finditer(text):
+            raw = m.group(0)
+            fixed = re.sub(r"[\s\-]", "", raw.translate(_CONF))
+            if re.fullmatch(r"1[3-9]\d{9}", fixed):
                 out.append({"type": "手机号", "start": m.start(), "end": m.end(), "text": raw})
         return out
 
@@ -142,7 +209,7 @@ class MaskingSession:
             raw = m.group(0)
             if not re.fullmatch(r"[\d\s\-]+", raw):
                 continue
-            core = re.sub(r"[\s\-]", "", raw)
+            core = re.sub(r"[\s\-\.,()]", "", raw)
             if not (16 <= len(core) <= 19):
                 continue
             ctx = text[max(0, m.start() - 8):m.start()]
@@ -225,7 +292,7 @@ class MaskingSession:
         这是 B5 轮用 1MB 输入压出来的真实性能缺陷，不是理论担忧。
         """
         if len(text) <= self.CHUNK:
-            return self._detect_one(text)
+            return self._detect_one(normalize_for_detection(text))
         spans: list[dict] = []
         pos = 0
         n = len(text)
@@ -237,7 +304,7 @@ class MaskingSession:
                     if cut > pos:
                         end = cut + 1
                         break
-            for sp in self._detect_one(text[pos:end]):
+            for sp in self._detect_one(normalize_for_detection(text[pos:end])):
                 sp["start"] += pos
                 sp["end"] += pos
                 spans.append(sp)
@@ -266,13 +333,19 @@ class MaskingSession:
 
     # ---------- 应用 / 回填 ----------
     def mask(self, text: str) -> tuple[str, dict]:
+        """占位符里登记的是**原文切片**，不是归一化后的文本。
+
+        检测跑在归一化串上（为了识破全角/零宽/同形字），但回填必须还原文，
+        否则 restore() 会把 "１３８…" 还原成 "138…"，等于悄悄改了客户的原始数据。
+        """
         spans = self.detect(text)
         out, cursor, found = [], 0, {}
         for s in spans:
             out.append(text[cursor:s["start"]])
-            ph = self._placeholder(s["type"], s["text"])
+            original = text[s["start"]:s["end"]]
+            ph = self._placeholder(s["type"], original)
             out.append(ph)
-            found.setdefault(s["type"], []).append(s["text"])
+            found.setdefault(s["type"], []).append(original)
             cursor = s["end"]
         out.append(text[cursor:])
         return "".join(out), found

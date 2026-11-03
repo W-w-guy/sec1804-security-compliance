@@ -14,8 +14,9 @@ def _iso(t: float) -> str:
 
 
 class Consent:
-    def __init__(self, db, audit, settings, retention=None):
+    def __init__(self, db, audit, settings, retention=None, outbox=None):
         self.db, self.audit, self.s, self.retention = db, audit, settings, retention
+        self.outbox = outbox
 
     def record(self, candidate_id: str, version: str, channel: str,
                now: float | None = None, actor: str = "candidate") -> dict:
@@ -30,6 +31,10 @@ class Consent:
                         "consent_channel": channel})
         self.audit.append(actor, "candidate", "consent.record", target=candidate_id,
                           detail={"version": version, "channel": channel}, now=now)
+        outbox = getattr(self, "outbox", None)
+        if outbox:
+            outbox.emit("consent.recorded", {"candidate_id": candidate_id,
+                                             "version": version, "channel": channel}, now=now)
         return row
 
     def revoke(self, candidate_id: str, now: float | None = None,
@@ -42,6 +47,9 @@ class Consent:
         self.db.execute("UPDATE consent_record SET revoked_at=? WHERE candidate_id=? AND revoked_at IS NULL",
                         (_iso(now), candidate_id))
         self.audit.append(actor, "candidate", "consent.revoke", target=candidate_id, now=now)
+        outbox = getattr(self, "outbox", None)
+        if outbox:
+            outbox.emit("consent.revoked", {"candidate_id": candidate_id}, now=now)
         deleted = False
         if self.retention:
             deleted = self.retention.delete_candidate(candidate_id, "consent_revoked",

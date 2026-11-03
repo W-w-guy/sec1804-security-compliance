@@ -244,6 +244,96 @@ $ docker exec ... python tools/loop_verify.py    → 10 轮 10/10
 $ docker exec ... python tools/loop_verify_b.py  → 10 通过 / 0 失败 / 0 跳过
 ```
 
+
+## 第三轮：C 组 15 轮 · 安全对抗（红队视角）
+
+A 组问"功能对不对"，B 组问"压力和边界上还对不对"，**C 组问"攻击者能拿到什么"**。
+每一轮按"攻击成功即失败"断言。`python tools/loop_verify_c.py`
+
+```
+[PASS] C1  jwt_forgery         alg=none / 篡改 payload / 换密钥 / 过期 / 无 Bearer / 未知角色 全部 401
+[PASS] C2  sql_injection       9 种注入串 × 6 个字段 + 保险箱 + 审计理由：无崩溃、无表丢失、链完整
+[PASS] C3  idor                跨城/跨站/明文越权/并发 50 次探测：零泄漏，列表按范围过滤
+[PASS] C4  mass_assignment     status=hired、is_minor、未声明字段、role 提权：全部被拒
+[PASS] C5  mask_bypass         全角/零宽/同形字/点号/括号/阿拉伯-印度数字/中文数字：8 种绕过全部拦下
+[PASS] C6  plaintext_leak      错误信息 / 审计 detail / 整库 dump / 导出：均无明文
+[PASS] C7  token_enum_timing   1000 次随机猜 0 命中；token 由 HMAC 派生；比较用 compare_digest
+[PASS] C8  approval_bypass     伪造/跨动作复用/非管理员自批/并发双花/空理由：全部拦下（双花严格 1 次）
+[PASS] C9  audit_integrity     接口无删改动词；改内容/删行/尾部截断 全部可定位
+[PASS] C10 malformed_input     1MB body、500 层 JSON、NaN、类型错、缺字段：无 500、无非法 JSON
+[PASS] C11 headers_exposure    无 Server 版本泄露、无 X-Powered-By、无 traceback，安全响应头齐全
+[PASS] C12 bruteforce_rate     60 次失败请求：0 成功、全部入审计、超限 429 且限流本身也入审计
+[PASS] C13 credential_hygiene  全仓扫描无硬编码密钥/私钥/平台 token；app 内无 print 明文
+[PASS] C14 deps_license        22 个依赖：0 deny、0 unknown，版本全部固定
+[PASS] C15 attack_chain        脱敏→送模型→越权取明文 整链在每一环都被阻断，且全程留痕
+C 组结果: 15/15 通过
+```
+
+### C 组挖出的 8 个真问题（全部已修）
+
+| # | 问题 | 攻击后果 | 修法 |
+|---|---|---|---|
+| 1 | **脱敏可被 Unicode 绕过** | 全角数字 `１３８…`、零宽字符夹断、`138.0013.8000`、`(138)0013-8000`、`ｌ3800138000`、`一三八零零…` 六种写法都能让手机号**原样送进模型** | 检测前做**等长同形归一化**（全角/阿拉伯-印度数字/零宽/同形字母），中文数字用"≥9 连串"专用检测器；占位符仍登记原文切片 |
+| 2 | **批量赋值提权** | 客户端可自设 `status=hired`（保留期 90→180 天，绕过数据最小化）、自设 `is_minor`（绕过 24 小时删除） | service 层按角色拦特权状态；`is_minor` 须管理员；未声明字段由 pydantic `extra="forbid"` 整单 422 |
+| 3 | **审批并发双花** | 同一审批 8 并发用 2 次（读-判-写非原子） | 条件 UPDATE 抢占 + 影响行数校验，严格 1 次 |
+| 4 | **无安全响应头** | 缺 HSTS/CSP/X-Frame-Options/nosniff | 中间件统一注入 |
+| 5 | **可被暴力破解** | 60 次 detokenize 试探 0.15 秒全被接受 | 滑动窗口限流（默认 60s/30 次）+ 429 + 限流本身入审计 |
+| 6 | **恶意输入致非法 JSON** | 请求含 `NaN` 时 422 响应回显 `nan`，序列化抛错，客户端拿不到响应 | 自定义 validation handler + 有界深度清洗 |
+| 7 | **保险箱无长度上限** | 1 万字符值被静默接受 | 单字段上限 256 字符 |
+| 8 | 我自己的测试写错 3 处 | 403 响应体没解析、`print(` 误匹配 `db_fingerprint(`、`all_cities` 默认 True 让越权测试失效 | 已修（不修就是假绿） |
+
+> 第 1 条是这轮最值钱的发现：**它不需要破解加密**。只要让检测器认不出号码，
+> PII 就会原样进大模型——契约里"送入模型前必须先脱敏"直接被绕开。
+
+## 第四轮：D 组 15 轮 · 一致性与故障恢复
+
+C 组解决"攻击者能拿到什么"，**D 组解决"系统出问题时会不会留下没法解释的状态"**。
+在 PII 系统里，一次"操作成功但没留痕"比功能 bug 严重 —— 事后无法向监管解释。
+
+```
+[PASS] D1  audit_atomicity         审计写失败 → 业务整笔撤销，无孤儿密文
+[PASS] D2  idempotency             Idempotency-Key 重放返回同一对象；同键不同体 409
+[PASS] D3  crash_recovery          写一半退出 → 重开库，链仍自洽，可继续追加
+[PASS] D4  rotate_crash            轮换中途崩溃 → 版本不前进，旧数据仍可解
+[PASS] D5  delete_read_race        清理与并发读交叉：无半匿名化对象、无异常
+[PASS] D6  tx_boundary             审计注入失败 → candidates/vault/audit 三者全部 0 增量
+[PASS] D7  concurrent_tokenize_audit  24 并发同值：1 行密文、1 条审计、链完整
+[PASS] D8  cross_consistency       无孤儿 token；审计条数与业务条数对齐
+[PASS] D9  db_unreachable          DB 不可达 2 秒内快速失败，不挂死
+[PASS] D10 pagination_capacity     500 条 0.4s；list 支持 limit/offset，越界 422
+[PASS] D11 audit_scale_verify      3000 行：verify 0.01s、tail 0.00s
+[PASS] D12 graceful_close          关闭重开：审计行不丢、链仍通过
+[PASS] D13 bulk_export             200 条导出 0.02s、17KB、无明文
+[PASS] D14 clock_skew              时钟回拨 1 天：不误删、回填早时间戳不断链
+[PASS] D15 event_contract          outbox 表 + HMAC-SHA256 签名 + 拉取/确认接口
+D 组结果: 15/15 通过
+```
+
+### D 组挖出的 4 个真问题（全部已修）
+
+| # | 问题 | 后果 | 修法 |
+|---|---|---|---|
+| 1 | **孤儿密文**：tokenize 先写库再写审计，审计失败时密文已落库 | 库里出现"有密文、无候选人、无审计"的行 —— 既违反最小化，也无法解释来源 | `Vault._store` 审计失败即删除刚插的行；`create()` 记录本次新建 token，失败整体补偿 |
+| 2 | **无幂等** | 网络重试 → 同一个人被建两次，两份 PII | `Idempotency-Key`：同键同体回放原响应；同键不同体 409；并发抢键 409 |
+| 3 | **list 无分页** | 1 万候选人时一次返回几十 MB | `limit/offset`，上限 500，越界 422 |
+| 4 | **契约的 outbox 事件缺失** | 下游无法可靠消费状态变更 | 补 `outbox` 表 + HMAC-SHA256 签名 + `/api/v1/outbox` 拉取/确认；consent 变更自动发事件 |
+
+## 累计：三轮专项 + 四组共 50 轮
+
+| 组 | 主题 | Windows | Ubuntu（容器，真 PG16 + 真 Vault 1.18） |
+|---|---|---|---|
+| 单测 | 功能 | **90 passed** | **90 passed**（JUnit 0 fail / 0 error） |
+| verify | 一键验收 | ALL PASS | ALL PASS |
+| A（10 轮） | 功能面 | 10/10 | 10/10 |
+| B（10 轮） | 并发/跨方言/边界/KMS | 8 pass + 2 skip（无 PG/Vault，**不计为通过**） | 10/10 |
+| C（15 轮） | 安全对抗 | 15/15 | 15/15 |
+| D（15 轮） | 一致性与故障恢复 | 15/15 | 15/15 |
+
+> 双平台合计暴露 **20 个缺陷**（B 组 6 个、C 组 8 个、D 组 4 个，另有若干测试自身缺陷），
+> 全部修完复跑。其中 **11 个只有单平台能看见**：ROS2 插件污染、pg8000 无 `dsn=`、
+> `Connection` 无 `execute()`、8080 端口占用、PG 多实例共用 public 互相污染、
+> Vault 后端首用即崩、并发丢审计……Windows 上一切正常，Ubuntu/容器一跑就现形。
+
 ## 与契约 v1 的对齐点
 
 - 前缀 `/api/v1`，错误体 `{code, message}`；员工端 `Authorization: Bearer <JWT>`。

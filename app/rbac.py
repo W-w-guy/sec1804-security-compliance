@@ -117,17 +117,31 @@ class Approvals:
 
     def consume(self, approval_id: str, actor: str, action: str, target: str,
                 now: float | None = None) -> None:
+        """校验并**原子地**把审批标记为已用。
+
+        ★ C8 轮实测的双花：8 个并发请求同时用同一个审批，2 次成功。
+          原因：原来是"先 SELECT 校验 → 再 UPDATE 标记"，两个线程都读到
+          status='approved'，于是都放行。
+          改法：用条件 UPDATE ... WHERE status='approved' 抢占，看影响行数，
+          只有抢到的那一个能继续；其余按"已用过"拒绝。
+        """
         now = time.time() if now is None else now
         row = self.db.one("SELECT * FROM approval WHERE id=?", (approval_id,))
         if not row:
             raise Forbidden("审批不存在", code="approval_missing")
+        if row["status"] == "consumed":
+            raise Forbidden("审批已使用过", code="approval_already_used")
         if row["status"] != "approved":
             raise Forbidden("审批未通过", code="approval_not_granted")
         if row["actor"] != actor or row["action"] != action or row["target"] != target:
             raise Forbidden("审批与请求不匹配", code="approval_mismatch")
         if row["expires_at"] and _ts(now) > row["expires_at"]:
             raise Forbidden("审批已过期", code="approval_expired")
-        self.db.update("approval", {"id": approval_id}, {"status": "consumed"})
+        cur = self.db.execute(
+            "UPDATE approval SET status='consumed' WHERE id=? AND status='approved'",
+            (approval_id,))
+        if getattr(cur, "rowcount", 0) != 1:
+            raise Forbidden("审批已使用过", code="approval_already_used")
 
 
 def _ts(t: float) -> str:

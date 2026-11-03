@@ -6,7 +6,9 @@ import tempfile
 from app.audit import Audit
 from app.config import Settings
 from app.consent import Consent
+from app.idempotency import Idempotency
 from app.kms import FieldCipher, build_kms
+from app.outbox import Outbox
 from app.masking import MaskingSession  # noqa: F401  (对外暴露)
 from app.rbac import Approvals
 from app.retention import Retention
@@ -28,10 +30,13 @@ class Container:
         self.kms = build_kms(self.settings)
         self.cipher = FieldCipher(self.kms)
         self.audit = Audit(self.db, self.settings)
+        # 顺序有依赖：outbox 先于 consent（consent 要发事件）
+        self.outbox = Outbox(self.db, self.settings.webhook_secret, self.audit)
         self.retention = Retention(self.db, self.audit, self.settings)
         self.vault = Vault(self.db, self.cipher, self.kms, self.audit, self.settings)
-        self.consent = Consent(self.db, self.audit, self.settings, self.retention)
+        self.consent = Consent(self.db, self.audit, self.settings, self.retention, self.outbox)
         self.approvals = Approvals(self.db)
+        self.idem = Idempotency(self.db)
 
     @classmethod
     def ephemeral(cls) -> "Container":
