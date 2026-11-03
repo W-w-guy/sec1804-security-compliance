@@ -62,7 +62,7 @@
    "round": 10,
    "name": "malformed_input",
    "ok": true,
-   "detail": "{\"1mb_body_handled\": true, \"deep_json_handled\": true, \"type_err_2858\": true, \"type_err_7398\": true, \"type_err_1261\": true, \"type_err_2946\": true, \"nan_handled\": true, \"missing_value_422\": true, \"wrong_content_type_handled\": true}"
+   "detail": "{\"1mb_body_handled\": true, \"deep_json_handled\": true, \"type_err_523\": true, \"type_err_980\": true, \"type_err_99\": true, \"type_err_2196\": true, \"nan_handled\": true, \"missing_value_422\": true, \"wrong_content_type_handled\": true}"
   },
   {
    "round": 11,
@@ -74,7 +74,7 @@
    "round": 12,
    "name": "bruteforce_rate",
    "ok": true,
-   "detail": "{\"no_success_in_bruteforce\": true, \"denied_attempts_audited\": true, \"no_2xx_in_bruteforce\": true, \"rate_limited\": true, \"ratelimit_is_audited\": true, \"requests\": 60, \"seconds\": 0.15}"
+   "detail": "{\"no_success_in_bruteforce\": true, \"denied_attempts_audited\": true, \"no_2xx_in_bruteforce\": true, \"rate_limited\": true, \"ratelimit_is_audited\": true, \"requests\": 60, \"seconds\": 0.17}"
   },
   {
    "round": 13,

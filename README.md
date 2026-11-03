@@ -334,6 +334,95 @@ D 组结果: 15/15 通过
 > `Connection` 无 `execute()`、8080 端口占用、PG 多实例共用 public 互相污染、
 > Vault 后端首用即崩、并发丢审计……Windows 上一切正常，Ubuntu/容器一跑就现形。
 
+
+## 第五轮：E 组 15 轮 · 并发正确性与接口边界
+
+前四组分别问"功能对不对 / 压力下对不对 / 攻击者能拿到什么 / 出错后能不能解释"。
+E 组问**"两个正常操作同时发生时，结果对不对"**——这类 bug 不报错、不留异常，
+只是数据悄悄错了。对 PII 系统来说，错一次就是错一份档案。
+
+```
+[PASS] E1  lost_update                两人同时改不同字段 → 两个修改都在
+[PASS] E2  optimistic_lock            带 If-Match 的过期版本 409，不覆盖
+[PASS] E3  partial_update             只传一个字段，其它字段不被清空
+[PASS] E4  field_level_concurrency    4 线程改 4 个不同字段，无一丢失
+[PASS] E5  delete_update_race         删了又改，不得"复活"
+[PASS] E6  unique_under_concurrency   8 并发同号：同一 token、重复可检出
+[PASS] E7  tx_isolation               并发读 518 次，0 次读到半成品（token 只写一半）
+[PASS] E8  audit_row_alignment        25 并发建人：业务 25 行 / 审计 25 条 / 链完整
+[PASS] E9  idempotency_concurrency    10 并发同键：严格 1 个赢家、9 个 409
+[PASS] E10 bulk_atomicity             批量里第 2 条越权 → 整批回滚，0 残留
+[PASS] E11 cursor_paging              游标分页：翻页期间插入不重复不漏
+[PASS] E12 count_consistency          返回条数受范围限制，total 明确标为上界
+[PASS] E13 bulk_limits                超长字段 422、超批量 422/403
+[PASS] E14 export_delete_race         导出途中被删：不导出已删数据，明确报错
+[PASS] E15 cross_city_concurrent_write 20 并发跨城写：全部拦下，0 行落库
+E 组结果: 15/15 通过
+```
+
+### E 组挖出的 3 个真问题
+
+| # | 问题 | 后果 | 修法 |
+|---|---|---|---|
+| 1 | **没有版本控制，整行覆盖** | 两个专员同时改同一人 → 后写覆盖前写，前一个修改**静默丢失** | 新增 `PATCH /candidates/{id}` + `version` 列；带 `If-Match` 时用 `UPDATE ... WHERE version=?` 抢占，不匹配 409 |
+| 2 | **`view()` 字段白名单漏了 3 个字段** | `start_text` / `experience_text` / `anonymized_at` 读出来是 None，客户端会以为"被清空了" | 白名单补齐 |
+| 3 | **list 无游标分页** | offset 分页在翻页期间有插入时会重复/漏项 | 新增 `cursor_from`，按 `(created_at, id)` 严格大于 |
+
+## 第六轮：F 组 15 轮 · 可运维性与可审计性
+
+E 组解决并发正确性，F 组解决**"证据"**：密钥被拷走怎样、备份恢复后链还能不能验、
+保留期到了怎么**证明**真删了、监管来要数据能不能独立核对。
+
+```
+[PASS] F1  kms_dir_permissions        密钥文件 0600、目录不可他人读（Linux 判定）
+[PASS] F2  key_data_separation        只拷走库、没密钥 → 解不出
+[PASS] F3  both_stolen_boundary       两者都被拷走 → 能解（AES 必然结果），风险已文档化
+[PASS] F4  kms_corrupt_no_silent_newkey 密钥文件损坏 → 启动即拒绝，不静默换新钥
+[PASS] F5  backup_restore_chain       备份→继续写→从备份恢复：链可验、恢复点可说明
+[PASS] F6  deletion_evidence          删除记录含规则/模式/时间，可导出给监管
+[PASS] F7  deletion_log_tamper        删除记录被改 → 链校验能定位
+[PASS] F8  audit_export_verifiable    导出包可**离线独立验证**（不碰库）
+[PASS] F9  export_no_plaintext        审计/删除导出均无明文
+[PASS] F10 regulator_query            按主体/按动作检索 200 行 < 0.01s
+[PASS] F11 rotation_rollback          轮换可回滚到旧版本，已加密数据仍可读
+[PASS] F12 config_change_audit        改保留期/阈值必须留痕（谁、何时、旧值→新值）
+[PASS] F13 health_not_fake_green      /health/deep 逐项查依赖；把密钥文件移走必须变红
+[PASS] F14 log_hygiene                审计/日志无明文、无密钥、无 token 值
+[PASS] F15 disaster_recovery          无钥/无库/库损坏 三种情况行为明确
+F 组结果: 15/15 通过
+```
+
+### F 组挖出的 6 个真问题
+
+| # | 问题 | 严重度 | 后果 | 修法 |
+|---|---|---|---|---|
+| 1 | **静默换钥** | **高** | KMS 目录空了会自举一把 v1 密钥，恰好与库里 `key_version=1` 对上 → "密钥丢了"被掩盖 | 库里固化**密钥指纹**（`meta.kms_fingerprint`），启动时比对，不一致即拒启动 |
+| 2 | **删除记录无防篡改** | 高 | 把 `deletion_log.rule` 改掉没人发现 → "我删过了"这张证据作废 | 删除记录也上哈希链，`deletions_verify()` 可逐行定位 |
+| 3 | **审计无法离线验证** | 高 | 监管拿到导出文件也只能信我们 | `export_bundle()` + `verify_bundle()`：只吃 JSON、不碰库 |
+| 4 | **配置变更无痕迹** | 中 | 90 天被改成 30 天，谁改的、什么时候，说不清 | `config_update()` 把 旧值→新值 写进审计 |
+| 5 | **`/health` 假绿** | 中 | 密钥坏了、库连不上，`/health` 照样 200 | `/health/deep` 逐项检查 db / kms / audit 链 / 删除链，任一不过即 `ok=false` |
+| 6 | **轮换不可回滚** | 中 | 新密钥出问题只能硬扛 | `rollback_to(version)`，只回退指针、旧密钥仍在，已加密数据不受影响 |
+
+> 第 1 条是这轮最危险的发现。它不报错、不告警，**数据看起来还能读**，
+> 但其实是拿错密钥在解。等真正发现时，可能已经把用新密钥加密的数据混进去了。
+
+## 累计：六组共 80 轮
+
+| 组 | 主题 | Windows 11 / Py3.11.7 | Ubuntu 容器（真 PG16 + 真 Vault 1.18） |
+|---|---|---|---|
+| 单测 | 功能 | **90 passed** | **90 passed**（JUnit 0 fail / 0 error） |
+| verify | 一键验收 | ALL PASS | ALL PASS |
+| A（10 轮） | 功能面 | 10/10 | 10/10 |
+| B（10 轮） | 并发/跨方言/边界/KMS | 8 pass + 2 skip（无 PG/Vault，**不计为通过**） | 10/10 |
+| C（15 轮） | 安全对抗 | 15/15 | 15/15 |
+| D（15 轮） | 一致性与故障恢复 | 15/15 | 15/15 |
+| E（15 轮） | 并发正确性与接口边界 | 15/15 | 15/15 |
+| F（15 轮） | 可运维性与可审计性 | 14/15 + 1 skip（Windows 无 POSIX 权限位） | **15/15** |
+
+> 双平台合计暴露 **29 个缺陷**（B 组 6、C 组 8、D 组 4、E 组 3、F 组 6，另有若干测试自身缺陷），
+> 全部修完复跑。其中 **14 个只有单平台或真实部署环境能看见**。
+> **每一组的"跳过"都明确标注且不计为通过** —— 假绿比红更危险。
+
 ## 与契约 v1 的对齐点
 
 - 前缀 `/api/v1`，错误体 `{code, message}`；员工端 `Authorization: Bearer <JWT>`。

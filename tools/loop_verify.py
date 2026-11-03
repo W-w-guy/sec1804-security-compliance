@@ -228,7 +228,9 @@ def r9(rng):
     cl = TestClient(create_app(c))
     spec = cl.get("/openapi.json").json()
     paths = [p for p in spec["paths"] if p != "/health"]
-    bad_prefix = [p for p in paths if not p.startswith("/api/v1/")]
+    # /health 与 /health/deep 是运维探针，按惯例不在 /api/v1 下
+    allowed = {"/health", "/health/deep"}
+    bad_prefix = [p for p in paths if p not in allowed and not p.startswith("/api/v1/")]
     need = ["/api/v1/vault/tokenize", "/api/v1/vault/detokenize", "/api/v1/mask",
             "/api/v1/candidates", "/api/v1/audit/verify", "/api/v1/retention/run",
             "/api/v1/consent", "/api/v1/rights-requests"]

@@ -55,7 +55,7 @@
    "round": 9,
    "name": "api_contract",
    "ok": true,
-   "detail": "paths=24 bad_prefix=[] missing=[] 401shape=True"
+   "detail": "paths=26 bad_prefix=[] missing=[] 401shape=True"
   },
   {
    "round": 10,

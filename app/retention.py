@@ -4,6 +4,7 @@
 保留期：未录用 90 天 / 对话原文 30 天 / 未成年人 24 小时 / 已录用 180 天（均可配置）。
 """
 from __future__ import annotations
+import hashlib
 import time
 from datetime import datetime, timedelta, timezone
 
@@ -30,9 +31,37 @@ class Retention:
     # ---------- 单条删除 ----------
     def _log_deletion(self, entity: str, entity_id: str, mode: str, rule: str,
                       detail: str = "", now: float | None = None) -> None:
+        """删除记录同样要防篡改：它是"我按规则删了"的证据。
+
+        F7 轮实测：`deletion_log` 原来是普通表，直接把 rule 改掉没人发现 ——
+        证据链等于没有。这里加哈希链（与 audit_log 同构），可逐行校验。
+        """
+        ts = _iso(time.time() if now is None else now)
+        last = self.db.one("SELECT id, hash FROM deletion_log ORDER BY id DESC LIMIT 1")
+        prev = last["hash"] if last and "hash" in last and last["hash"] else "0" * 64
+        payload = "|".join([prev, ts, entity, entity_id, mode, rule, detail or ""])
+        h = hashlib.sha256(payload.encode()).hexdigest()
         self.db.insert("deletion_log", {
-            "ts": _iso(time.time() if now is None else now), "entity": entity,
-            "entity_id": entity_id, "mode": mode, "rule": rule, "detail": detail})
+            "ts": ts, "entity": entity, "entity_id": entity_id, "mode": mode,
+            "rule": rule, "detail": detail, "prev_hash": prev, "hash": h})
+
+    def deletions_verify(self) -> dict:
+        """逐行重算删除记录链；返回 ok / 被改的 id / 断号。"""
+        rows = self.db.query("SELECT * FROM deletion_log ORDER BY id")
+        tampered, gaps, prev = [], [], "0" * 64
+        expect = 1
+        for r in rows:
+            if r["id"] != expect:
+                gaps.append(expect)
+            expect = r["id"] + 1
+            payload = "|".join([r.get("prev_hash") or "", r["ts"], r["entity"],
+                                r["entity_id"], r["mode"], r["rule"], r.get("detail") or ""])
+            if (hashlib.sha256(payload.encode()).hexdigest() != r.get("hash")
+                    or (r.get("prev_hash") or "") != prev):
+                tampered.append(r["id"])
+            prev = r.get("hash") or prev
+        return {"ok": not tampered and not gaps, "rows": len(rows),
+                "tampered_id": tampered, "missing_id": gaps, "tip": prev}
 
     def delete_candidate(self, candidate_id: str, rule: str, mode: str = "delete",
                          now: float | None = None) -> bool:

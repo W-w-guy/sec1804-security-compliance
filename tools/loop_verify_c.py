@@ -598,6 +598,9 @@ def c13(rng):
         (re.compile(r"ghp_[A-Za-z0-9]{20,}|sk-[A-Za-z0-9]{20,}"), "GitHub/LLM token"),
         (re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"), "私钥"),
     ]
+    # 允许清单：明显是占位/演示用的假值（真密钥不会长这样）
+    ALLOW = {"dev-only-change-me", "change-in-prod", "dev-webhook-secret-change-me",
+             "test-secret", "loopF", "loop-secret", "demo", "wrong-secret"}
     hits = []
     skip_dirs = {".git", "__pycache__", ".venv", ".venv2", ".pytest_cache"}
     for dp, dn, fns in os.walk(ROOT):
@@ -611,7 +614,8 @@ def c13(rng):
             except OSError:
                 continue
             for pat, name in pats:
-                if pat.search(txt):
+                m = pat.search(txt)
+                if m and not any(a in m.group(0) for a in ALLOW):
                     hits.append(f"{name}:{os.path.relpath(p, ROOT)}")
     checks["no_hardcoded_secrets"] = not hits
     # 日志/审计不得打印明文（复用 C6 的库 dump 思路，这里查代码里有没有 print 明文的可疑点）

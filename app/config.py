@@ -43,6 +43,8 @@ class Settings:
     reason_min_len: int = _int("REASON_MIN_LEN", 4)
     # 保险箱单字段值上限（防超长值撑爆密文/审计）
     max_value_len: int = _int("MAX_VALUE_LEN", 256)
+    bulk_max_items: int = _int("BULK_MAX_ITEMS", 100)
+    max_field_len: int = _int("MAX_FIELD_LEN", 512)
     # 限流：同 actor 同动作在窗口内的最大失败次数（0 = 关闭）
     rate_limit_window: int = _int("RATE_LIMIT_WINDOW", 60)
     rate_limit_max: int = _int("RATE_LIMIT_MAX", 30)

@@ -62,13 +62,13 @@
    "round": 10,
    "name": "pagination_capacity",
    "ok": true,
-   "detail": "{\"bulk_returns_all\": true, \"pagination_supported\": true, \"bulk_under_3s\": true, \"rows\": 500, \"bulk_seconds\": 0.74}"
+   "detail": "{\"bulk_returns_all\": true, \"pagination_supported\": true, \"bulk_under_3s\": true, \"rows\": 500, \"bulk_seconds\": 0.86}"
   },
   {
    "round": 11,
    "name": "audit_scale_verify",
    "ok": true,
-   "detail": "{\"chain_ok\": true, \"verify_under_10s\": true, \"tail_under_1s\": true, \"rows\": 3000, \"insert_s\": 2.17, \"verify_s\": 0.02, \"tail_s\": 0.0}"
+   "detail": "{\"chain_ok\": true, \"verify_under_10s\": true, \"tail_under_1s\": true, \"rows\": 3000, \"insert_s\": 2.43, \"verify_s\": 0.02, \"tail_s\": 0.001}"
   },
   {
    "round": 12,
@@ -80,7 +80,7 @@
    "round": 13,
    "name": "bulk_export",
    "ok": true,
-   "detail": "{\"export_ok\": true, \"under_5s\": true, \"no_plaintext\": true, \"size_reasonable\": true, \"seconds\": 0.14, \"bytes\": 17529}"
+   "detail": "{\"export_ok\": true, \"under_5s\": true, \"no_plaintext\": true, \"size_reasonable\": true, \"seconds\": 0.16, \"bytes\": 17529}"
   },
   {
    "round": 14,

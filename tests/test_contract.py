@@ -14,8 +14,9 @@ REQUIRED_PATHS = [
 
 def test_all_contract_paths_have_v1_prefix(c):
     spec = TestClient(create_app(c)).get("/openapi.json").json()
+    allowed = {"/health", "/health/deep"}      # 运维探针不在 /api/v1 下
     for p in spec["paths"]:
-        assert p == "/health" or p.startswith("/api/v1/"), p
+        assert p in allowed or p.startswith("/api/v1/"), p
 
 
 def test_required_paths_present(c):

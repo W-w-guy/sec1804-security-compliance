@@ -1,0 +1,101 @@
+{
+ "group": "F",
+ "platform": "Linux",
+ "python": "3.12.16",
+ "seed": 20261108,
+ "rounds": [
+  {
+   "round": 1,
+   "name": "kms_dir_permissions",
+   "ok": true,
+   "detail": "{\"key_not_world_readable\": true, \"key_not_group_readable\": true, \"mode\": \"0o600\", \"dirmode\": \"0o755\"}"
+  },
+  {
+   "round": 2,
+   "name": "key_data_separation",
+   "ok": true,
+   "detail": "{\"blocked_by\": \"NotFound\"}"
+  },
+  {
+   "round": 3,
+   "name": "both_stolen_boundary",
+   "ok": true,
+   "detail": "{\"decryptable_with_both\": true, \"risk_documented\": true, \"mitigation\": \"\\u5bc6\\u94a5\\u653e Vault/KMS\\uff0c\\u4e0d\\u4e0e\\u5e94\\u7528\\u540c\\u673a\\u540c\\u76d8\\uff1b\\u78c1\\u76d8\\u52a0\\u5bc6\\uff1b\\u6700\\u5c0f\\u6743\\u9650\"}"
+  },
+  {
+   "round": 4,
+   "name": "kms_corrupt_no_silent_newkey",
+   "ok": true,
+   "detail": "{\"blocked_at\": \"startup\", \"by\": \"JSONDecodeError\"}"
+  },
+  {
+   "round": 5,
+   "name": "backup_restore_chain",
+   "ok": true,
+   "detail": "{\"backup_chain_ok\": true, \"backup_rows\": true, \"gap_detectable\": true, \"tip_matches_backup\": true, \"mode\": \"pg_logical\"}"
+  },
+  {
+   "round": 6,
+   "name": "deletion_evidence",
+   "ok": true,
+   "detail": "{\"has_deletion_records\": true, \"records_rule\": true, \"records_mode\": true, \"records_ts\": true, \"evidence_exportable\": true, \"rules\": [\"hired_180d\", \"not_hired_90d\"], \"count\": 2}"
+  },
+  {
+   "round": 7,
+   "name": "deletion_log_tamper",
+   "ok": true,
+   "detail": "{\"mutation_detected\": true, \"before_rows\": 2, \"after_rows\": 2}"
+  },
+  {
+   "round": 8,
+   "name": "audit_export_verifiable",
+   "ok": true,
+   "detail": "{\"shape_ok\": true, \"verify\": true, \"rows\": 5}"
+  },
+  {
+   "round": 9,
+   "name": "export_no_plaintext",
+   "ok": true,
+   "detail": "{\"audit_no_phone\": true, \"audit_no_name\": true, \"deletion_no_phone\": true}"
+  },
+  {
+   "round": 10,
+   "name": "regulator_query",
+   "ok": true,
+   "detail": "{\"by_actor_works\": true, \"by_action_works\": true, \"fast\": true, \"indexed_or_fast\": true, \"by_actor_s\": 0.001, \"by_action_s\": 0.001}"
+  },
+  {
+   "round": 11,
+   "name": "rotation_rollback",
+   "ok": true,
+   "detail": "{\"rotated\": true, \"rollback_supported\": true, \"data_still_readable\": true, \"candidates_readable_after_rollback\": true}"
+  },
+  {
+   "round": 12,
+   "name": "config_change_audit",
+   "ok": true,
+   "detail": "{\"config_api_exists\": true, \"audited\": true, \"records_old_and_new\": true}"
+  },
+  {
+   "round": 13,
+   "name": "health_not_fake_green",
+   "ok": true,
+   "detail": "{\"health_ok\": true, \"deep_exists\": true, \"deep_reports_dependencies\": true, \"deep_all_checks_pass\": true, \"deep_turns_red_when_kms_broken\": true}"
+  },
+  {
+   "round": 14,
+   "name": "log_hygiene",
+   "ok": true,
+   "detail": "{\"no_phone_in_audit\": true, \"no_token_value_in_audit\": true, \"no_kms_key_in_audit\": true, \"no_phone_in_logs\": true}"
+  },
+  {
+   "round": 15,
+   "name": "disaster_recovery",
+   "ok": true,
+   "detail": "{\"no_key\": \"startup_blocked:RuntimeError\", \"no_db\": \"started_rows=0\", \"corrupt\": \"SKIP_PG\"}"
+  }
+ ],
+ "passed": 15,
+ "failed": 0,
+ "skipped": []
+}
