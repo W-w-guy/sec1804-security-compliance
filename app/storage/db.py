@@ -57,6 +57,13 @@ _SCHEMA = [
         candidate_id TEXT NOT NULL, kind TEXT NOT NULL,
         status TEXT NOT NULL, created_at TEXT NOT NULL,
         due_at TEXT NOT NULL, closed_at TEXT, note TEXT)""",
+    """CREATE TABLE IF NOT EXISTS idempotency (
+        key TEXT PRIMARY KEY, actor TEXT NOT NULL, fingerprint TEXT NOT NULL,
+        status INTEGER NOT NULL, body TEXT NOT NULL, created_at TEXT NOT NULL)""",
+    """CREATE TABLE IF NOT EXISTS outbox (
+        id INTEGER PRIMARY KEY,
+        topic TEXT NOT NULL, payload TEXT NOT NULL, signature TEXT NOT NULL,
+        created_at TEXT NOT NULL, delivered_at TEXT)""",
     """CREATE TABLE IF NOT EXISTS approval (
         id TEXT PRIMARY KEY, actor TEXT NOT NULL, action TEXT NOT NULL,
         target TEXT NOT NULL, reason TEXT NOT NULL,

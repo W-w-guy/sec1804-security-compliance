@@ -62,8 +62,17 @@ class Vault:
             if self.db.one("SELECT token FROM vault_items WHERE token=?", (token,)):
                 return token
             raise
-        self.audit.append(actor, role, "vault.tokenize", target=token,
-                          detail={"type": item_type, "key_version": version}, now=now)
+        try:
+            self.audit.append(actor, role, "vault.tokenize", target=token,
+                              detail={"type": item_type, "key_version": version}, now=now)
+        except Exception:
+            # 审计写不进去 = 这次写入无法解释，必须撤掉刚插的密文行，
+            # 否则库里会出现"有密文、没痕迹"的孤儿（D6 轮实测就是这么留下的）。
+            try:
+                self.db.execute("DELETE FROM vault_items WHERE token=?", (token,))
+            except Exception:                       # noqa: BLE001
+                pass
+            raise
         return token
 
     def _insert_row(self, token, item_type, version, nonce, ct, now):
@@ -85,6 +94,11 @@ class Vault:
         item_type = norm_type(item_type)
         if value is None or str(value) == "":
             raise Forbidden("value 不能为空", code="empty_value")
+        # 单个字段值不该有 1 万字符（C5 轮实测 10000 字符被静默接受）：
+        # 超长值既不像真实姓名/号码，又会把密文和审计撑大，直接拒绝。
+        if len(str(value)) > self.settings.max_value_len:
+            raise Forbidden(f"value 超长（上限 {self.settings.max_value_len} 字符）",
+                            code="value_too_long")
         token = self._store(item_type, str(value), actor, role, now)
         return {"token": token, "type": item_type, "masked": self._mask(item_type, str(value))}
 

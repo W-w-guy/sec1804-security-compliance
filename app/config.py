@@ -23,6 +23,8 @@ class Settings:
     kms_backend: str = os.environ.get("KMS_BACKEND", "file")
     kms_dir: str = os.environ.get("KMS_DIR", "./.kms")
     kms_secret: str = os.environ.get("KMS_SECRET", "")   # 测试注入；生产由 KMS 提供
+    # Webhook 签名密钥（契约 v1：事件 HMAC-SHA256）
+    webhook_secret: str = os.environ.get("WEBHOOK_SECRET", "dev-webhook-secret-change-me")
     # JWT
     jwt_secret: str = os.environ.get("JWT_SECRET", "dev-only-change-me")
     jwt_ttl: int = _int("JWT_TTL", 3600)
@@ -39,6 +41,11 @@ class Settings:
     rights_sla_hours: int = _int("RIGHTS_SLA_HOURS", 360)
     # detokenize 理由最小长度
     reason_min_len: int = _int("REASON_MIN_LEN", 4)
+    # 保险箱单字段值上限（防超长值撑爆密文/审计）
+    max_value_len: int = _int("MAX_VALUE_LEN", 256)
+    # 限流：同 actor 同动作在窗口内的最大失败次数（0 = 关闭）
+    rate_limit_window: int = _int("RATE_LIMIT_WINDOW", 60)
+    rate_limit_max: int = _int("RATE_LIMIT_MAX", 30)
     extra: dict = field(default_factory=dict)
 
 

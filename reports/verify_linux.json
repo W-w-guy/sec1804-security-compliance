@@ -6,8 +6,8 @@
   "python": "3.12.16"
  },
  "sha256": {
-  "app/masking.py": "988ceedb4696f9c525eab58454ed5d495930e5e967fbd9dc3bcb08173208d73f",
-  "app/vault.py": "5cca8f4646513b309d5d2c757bf9c5d0bb1c8b6caedc7ca2ae2e0be5e0382c30",
+  "app/masking.py": "772ed873812c447cf3c192348008cf3abfb987c3e14be0d52fd583aa0f6086de",
+  "app/vault.py": "df1fda7a9dece784f7009e8334a260d72b064847c4333370283494a6d44cdda7",
   "app/audit.py": "844acb6033f244902cc796b42508bf7b36c4f3a4dee8ae5afd1dae40eacbfe26",
   "app/retention.py": "4c6d8e540837e1b446107027bb165a4eec49dae885caa3b5695bc9d170f73c51",
   "data/samples_200.csv": "b75b552a7044f6cb217adfe90cd17a97fc9f1bb5ee1f6236f89b146799f56792",
@@ -17,9 +17,9 @@
   {
    "name": "unit_tests",
    "ok": true,
-   "passed": 77,
+   "passed": 90,
    "failed": 0,
-   "collected": 77,
+   "collected": 90,
    "skipped": 0,
    "cmd": "python tools/run_tests.py",
    "tail": [
@@ -118,13 +118,13 @@
       3
      ],
      "missing_seq": [],
-     "tip": "e4ddd4ef05072348c62beaa0430bec20022794d0df5f265a1794edb841e4612f"
+     "tip": "eec9caa71808edd3fee1fbe9555904b21ea80e81e4b66df095d9c8165e2c84bf"
     },
     "4_locate_seq3": [
      {
       "field": "content_or_hash",
-      "stored_hash": "1c85d1f5c908f8557c9d7ae541e58e4560c2b22e196e44dd7082869e2af55d81",
-      "recomputed": "499072e89f0f3965028dc2ebeb65688b73603ea248b5728832df8fe0caab38bc"
+      "stored_hash": "8748fbc8af4e527fb6e141abb1cdda7f52c349dce82a7cb3ac15ca897b46da99",
+      "recomputed": "852a6e48865f9ebe27a4ba9f86d17752ea540deb4a6e277f04fd3c13e6d0053c"
      }
     ],
     "5_retention_report": {

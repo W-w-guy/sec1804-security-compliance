@@ -1,0 +1,100 @@
+{
+ "group": "D",
+ "platform": "Windows",
+ "python": "3.11.7",
+ "seed": 20261106,
+ "rounds": [
+  {
+   "round": 1,
+   "name": "audit_atomicity",
+   "ok": true,
+   "detail": "{\"no_silent_write\": true, \"no_orphan_when_failed\": true, \"created\": false, \"rows\": 0}"
+  },
+  {
+   "round": 2,
+   "name": "idempotency",
+   "ok": true,
+   "detail": "{\"first_ok\": true, \"idempotent\": true, \"second_reused\": true, \"rows\": 1}"
+  },
+  {
+   "round": 3,
+   "name": "crash_recovery",
+   "ok": true,
+   "detail": "{\"chain_ok_after_restart\": true, \"half_row_survives\": true, \"append_after_restart_ok\": true}"
+  },
+  {
+   "round": 4,
+   "name": "rotate_crash",
+   "ok": true,
+   "detail": "{\"crash_propagated\": true, \"no_version_bump\": true, \"old_data_decryptable\": true, \"version\": 1}"
+  },
+  {
+   "round": 5,
+   "name": "delete_read_race",
+   "ok": true,
+   "detail": "{\"problems\": [], \"count\": 0}"
+  },
+  {
+   "round": 6,
+   "name": "tx_boundary",
+   "ok": true,
+   "detail": "{\"candidates\": 0, \"vault_items\": 0, \"audit_log\": 0}"
+  },
+  {
+   "round": 7,
+   "name": "concurrent_tokenize_audit",
+   "ok": true,
+   "detail": "{\"no_error\": true, \"single_row\": true, \"audit_once_per_insert\": true, \"chain_ok\": true, \"errs\": [], \"rows\": 1, \"audits\": 1}"
+  },
+  {
+   "round": 8,
+   "name": "cross_consistency",
+   "ok": true,
+   "detail": "{\"no_orphan_token\": true, \"audit_create_matches\": true, \"audit_tokenize_covers_fields\": true, \"chain_ok\": true, \"cands\": 5, \"creates\": 5, \"tokenize\": 10}"
+  },
+  {
+   "round": 9,
+   "name": "db_unreachable",
+   "ok": true,
+   "detail": "{\"failed_fast\": true, \"seconds\": 2.06, \"err\": \"InterfaceError\"}"
+  },
+  {
+   "round": 10,
+   "name": "pagination_capacity",
+   "ok": true,
+   "detail": "{\"bulk_returns_all\": true, \"pagination_supported\": true, \"bulk_under_3s\": true, \"rows\": 500, \"bulk_seconds\": 0.39}"
+  },
+  {
+   "round": 11,
+   "name": "audit_scale_verify",
+   "ok": true,
+   "detail": "{\"chain_ok\": true, \"verify_under_10s\": true, \"tail_under_1s\": true, \"rows\": 3000, \"insert_s\": 1.75, \"verify_s\": 0.01, \"tail_s\": 0.0}"
+  },
+  {
+   "round": 12,
+   "name": "graceful_close",
+   "ok": true,
+   "detail": "{\"rows_preserved\": true, \"chain_still_ok\": true, \"rows\": 5}"
+  },
+  {
+   "round": 13,
+   "name": "bulk_export",
+   "ok": true,
+   "detail": "{\"export_ok\": true, \"under_5s\": true, \"no_plaintext\": true, \"size_reasonable\": true, \"seconds\": 0.02, \"bytes\": 17529}"
+  },
+  {
+   "round": 14,
+   "name": "clock_skew",
+   "ok": true,
+   "detail": "{\"no_premature_delete\": true, \"deleted_zero\": true, \"chain_ok_with_backdated_entry\": true}"
+  },
+  {
+   "round": 15,
+   "name": "event_contract",
+   "ok": true,
+   "detail": "{\"audit_readable_for_streaming\": true, \"seq_monotonic\": true, \"has_outbox_table\": true, \"note\": \"\\u5951\\u7ea6\\u7684 outbox+HMAC Webhook \\u5c5e\\u4e8e\\u4e1a\\u52a1\\u4fa7\\uff08\\u4efb\\u52a11/3\\uff09\\uff1b\\u672c\\u6a21\\u5757\\u672a\\u5b9e\\u73b0\\uff0c\\u5982\\u5b9e\\u6807\\u6ce8\"}"
+  }
+ ],
+ "passed": 15,
+ "failed": 0
+}

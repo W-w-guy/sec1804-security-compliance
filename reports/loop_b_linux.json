@@ -55,13 +55,13 @@
    "round": 9,
    "name": "openapi_errorcodes",
    "ok": true,
-   "detail": "paths=23 ops=25 dup=[] err_codes=['conflict', 'forbidden', 'not_found', 'unauthorized'] bodies_ok=True framework404_json=True"
+   "detail": "paths=25 ops=28 dup=[] err_codes=['conflict', 'forbidden', 'not_found', 'unauthorized'] bodies_ok=True framework404_json=True"
   },
   {
    "round": 10,
    "name": "vault_backend",
    "ok": true,
-   "detail": "versions 4->5 keylen=32 old_key_stable=True"
+   "detail": "versions 7->8 keylen=32 old_key_stable=True"
   }
  ],
  "passed": 10,
