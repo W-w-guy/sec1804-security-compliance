@@ -1,0 +1,69 @@
+# 干净机器上 `docker compose up` 即可启动（契约 v1：PostgreSQL 16 + pgvector / Redis 7.2 / FastAPI）
+#
+# 设计取舍：
+#   核心三件（db / cache / api）是默认启动项，`docker compose up` 一定起得来。
+#   Vault 放在 profile 里：镜像较大且在国内镜像源上经常拉不到，不该挡住"一键启动"。
+#   要演示 KMS 走 Vault：
+#       docker compose --profile vault up -d
+#       KMS_BACKEND=vault VAULT_ADDR=http://localhost:8200 VAULT_TOKEN=root #         python tools/pg_smoke.py      # 或改 api 服务环境变量
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: sec
+      POSTGRES_PASSWORD: sec
+      POSTGRES_DB: sec1804
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sec -d sec1804"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  cache:
+    image: redis:7.2-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  api:
+    build:
+      context: .
+      args:
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.tuna.tsinghua.edu.cn/simple}
+    depends_on:
+      db:
+        condition: service_healthy
+      cache:
+        condition: service_healthy
+    environment:
+      PG_DSN: postgresql://sec:sec@db:5432/sec1804
+      REDIS_URL: redis://cache:6379/0
+      KMS_BACKEND: ${KMS_BACKEND:-file}
+      KMS_DIR: /app/.kms
+      JWT_SECRET: ${JWT_SECRET:-change-in-prod}
+      VAULT_ADDR: ${VAULT_ADDR:-http://vault:8200}
+      VAULT_TOKEN: ${VAULT_TOKEN:-root}
+    ports:
+      # 8080 常被别的服务占用（本机实测就撞过一次）：用 API_PORT 覆盖
+      - "${API_PORT:-8080}:8080"
+    volumes:
+      - kmsdata:/app/.kms
+
+  vault:
+    profiles: ["vault"]
+    image: hashicorp/vault:1.18
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: root
+      VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
+    command: ["server", "-dev"]
+    ports:
+      - "8200:8200"
+
+volumes:
+  pgdata:
+  kmsdata:

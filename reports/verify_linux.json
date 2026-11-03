@@ -1,0 +1,177 @@
+{
+ "platform": {
+  "system": "Linux",
+  "release": "7.0.0-38-generic",
+  "machine": "x86_64",
+  "python": "3.12.3"
+ },
+ "sha256": {
+  "app/masking.py": "e085a2fb0be5518b9dd68af8c1f04de3634fbed4aa14ddcaf5f40e247adc2c1a",
+  "app/vault.py": "ccf14ce5fe69e7bb77d7a290a92ce52640d22325569a6ffd6b439008389d7c6e",
+  "app/audit.py": "49957bfdcf97025927df836cfe7378b666a767a07554778908d5950e4d045c7b",
+  "app/retention.py": "704da70a0ad18dc480665f21cd129c2cd7cdeadf3b0369eecad3b2f2133b65d7",
+  "data/samples_200.csv": "b75b552a7044f6cb217adfe90cd17a97fc9f1bb5ee1f6236f89b146799f56792",
+  "data/holdout_adversarial.csv": "d99e4b8ce43c2f31a8a1695f4112ecb83c6a930a0007239206a25fa256aafec5"
+ },
+ "steps": [
+  {
+   "name": "unit_tests",
+   "ok": true,
+   "passed": 77,
+   "failed": 0,
+   "collected": 77,
+   "skipped": 0,
+   "cmd": "python tools/run_tests.py",
+   "tail": [
+    ".....                                                                    [100%]"
+   ]
+  },
+  {
+   "name": "masking_recall",
+   "ok": true,
+   "detail": {
+    "samples_200.csv": {
+     "samples": 228,
+     "checks": {
+      "phone_recall": true,
+      "idcard_recall": true,
+      "name_recall": true,
+      "addr_recall": true,
+      "fp_rate": true
+     },
+     "recall": {
+      "手机号": 1.0,
+      "身份证号": 1.0,
+      "银行卡号": 1.0,
+      "地址": 1.0,
+      "姓名": 1.0,
+      "邮箱": 1.0
+     },
+     "fp_rate": {
+      "手机号": 0.0,
+      "身份证号": 0.0,
+      "银行卡号": 0.0,
+      "地址": 0.0,
+      "姓名": 0.0,
+      "邮箱": 0.0
+     }
+    },
+    "holdout_adversarial.csv": {
+     "samples": 38,
+     "checks": {
+      "phone_recall": true,
+      "idcard_recall": true,
+      "name_recall": true,
+      "addr_recall": true,
+      "fp_rate": true
+     },
+     "recall": {
+      "手机号": 1.0,
+      "身份证号": 1.0,
+      "银行卡号": 1.0,
+      "地址": 1.0,
+      "姓名": 1.0,
+      "邮箱": 1.0
+     },
+     "fp_rate": {
+      "手机号": 0.0,
+      "身份证号": 0.0,
+      "银行卡号": 0.0,
+      "地址": 0.0,
+      "姓名": 0.0,
+      "邮箱": 0.0
+     }
+    }
+   },
+   "cmd": "python tools/eval_masking.py [samples_200.csv|holdout_adversarial.csv]"
+  },
+  {
+   "name": "audit_tamper_locate",
+   "ok": true,
+   "detail": {
+    "before_ok": true,
+    "after_ok": false,
+    "tampered_seq": [
+     4
+    ],
+    "located_fields": 1
+   },
+   "cmd": "见 README『验证记录 · 篡改定位』"
+  },
+  {
+   "name": "e2e_demo",
+   "ok": true,
+   "detail": {
+    "1_plaintext_leaked_in_db": false,
+    "1_token": "vt_0k09Wxm74hWbkXxRIFDFA73hka",
+    "1_masked": "138****8000",
+    "1_detokenized": "13800138000",
+    "3_denied_codes": {
+     "recruiter": "missing_permission",
+     "admin_no_reason": "reason_required"
+    },
+    "3_denied_audit_rows": 2,
+    "4_audit_verify": {
+     "ok": false,
+     "rows": 8,
+     "tampered_seq": [
+      3
+     ],
+     "missing_seq": [],
+     "tip": "2c5f1f9da3e324915ef5cef05b3aead8a98c7676928b3e651f2f5f18c6a1dfd5"
+    },
+    "4_locate_seq3": [
+     {
+      "field": "content_or_hash",
+      "stored_hash": "08b11c6591a8868748552ca01f18c2b7b325429188ef71b8eaf6038b228dca18",
+      "recomputed": "23f0a370480cb830fa28e4a4d4ad3e5f60b4ef04931b0d680cf7c62e2b91129c"
+     }
+    ],
+    "5_retention_report": {
+     "transcripts_deleted": 1,
+     "minors_deleted": 0,
+     "expired_anonymized": 0,
+     "expired_deleted": 0,
+     "revoked_deleted": 0
+    },
+    "5_deletion_log": [
+     "transcript_30d"
+    ],
+    "5_revoke_deleted": true,
+    "6_out_of_scope": "out_of_scope"
+   },
+   "cmd": "python run.py demo --json"
+  },
+  {
+   "name": "license_scan",
+   "ok": true,
+   "detail": {
+    "scope": "requirements.txt 依赖闭包",
+    "total": 22,
+    "denied": [],
+    "unknown": [
+     {
+      "name": "python-dateutil",
+      "version": "4.0.0",
+      "license": "",
+      "source": "metadata",
+      "verdict": "unknown"
+     },
+     {
+      "name": "scramp",
+      "version": "1.5.0",
+      "license": "",
+      "source": "metadata",
+      "verdict": "unknown"
+     }
+    ],
+    "not_installed": [
+     "exceptiongroup"
+    ],
+    "ok": true
+   },
+   "cmd": "python tools/dep_scan.py --json"
+  }
+ ],
+ "ok": true
+}

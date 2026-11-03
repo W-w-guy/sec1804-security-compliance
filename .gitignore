@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.venv*/
+.pytest_cache/
+.kms/
+reports/_pytest.xml
+*.db
+*.db-wal
+*.db-shm

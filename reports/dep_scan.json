@@ -1,0 +1,166 @@
+{
+ "scope": "requirements.txt 依赖闭包",
+ "total": 22,
+ "denied": [],
+ "unknown": [],
+ "not_installed": [
+  "exceptiongroup"
+ ],
+ "ok": true,
+ "rows": [
+  {
+   "name": "annotated-doc",
+   "version": "0.0.5",
+   "license": "MIT",
+   "source": "static",
+   "verdict": "allow"
+  },
+  {
+   "name": "annotated-types",
+   "version": "0.8.0",
+   "license": "MIT License",
+   "source": "metadata",
+   "verdict": "allow"
+  },
+  {
+   "name": "anyio",
+   "version": "4.15.1",
+   "license": "MIT",
+   "source": "static",
+   "verdict": "allow"
+  },
+  {
+   "name": "asn1crypto",
+   "version": "1.5.1",
+   "license": "MIT",
+   "source": "metadata",
+   "verdict": "allow"
+  },
+  {
+   "name": "cffi",
+   "version": "2.1.1",
+   "license": "MIT",
+   "source": "static",
+   "verdict": "allow"
+  },
+  {
+   "name": "click",
+   "version": "8.5.0",
+   "license": "BSD-3-Clause",
+   "source": "static",
+   "verdict": "allow"
+  },
+  {
+   "name": "cryptography",
+   "version": "50.0.2",
+   "license": "Apache-2.0 OR BSD-3-Clause",
+   "source": "static",
+   "verdict": "allow"
+  },
+  {
+   "name": "fastapi",
+   "version": "0.162.0",
+   "license": "MIT",
+   "source": "static",
+   "verdict": "allow"
+  },
+  {
+   "name": "h11",
+   "version": "0.16.0",
+   "license": "MIT",
+   "source": "metadata",
+   "verdict": "allow"
+  },
+  {
+   "name": "idna",
+   "version": "3.20",
+   "license": "BSD-3-Clause",
+   "source": "static",
+   "verdict": "allow"
+  },
+  {
+   "name": "opentelemetry-api",
+   "version": "1.45.0",
+   "license": "Apache-2.0",
+   "source": "static",
+   "verdict": "allow"
+  },
+  {
+   "name": "pg8000",
+   "version": "1.31.6",
+   "license": "BSD 3-Clause License",
+   "source": "metadata",
+   "verdict": "allow"
+  },
+  {
+   "name": "pycparser",
+   "version": "3.0",
+   "license": "BSD-3-Clause",
+   "source": "static",
+   "verdict": "allow"
+  },
+  {
+   "name": "pydantic",
+   "version": "2.13.5",
+   "license": "MIT",
+   "source": "static",
+   "verdict": "allow"
+  },
+  {
+   "name": "pydantic_core",
+   "version": "2.46.5",
+   "license": "MIT",
+   "source": "static",
+   "verdict": "allow"
+  },
+  {
+   "name": "python-dateutil",
+   "version": "2.9.0.post0",
+   "license": "Apache-2.0 OR BSD-3-Clause",
+   "source": "static",
+   "verdict": "allow"
+  },
+  {
+   "name": "scramp",
+   "version": "1.5.0",
+   "license": "MIT",
+   "source": "static",
+   "verdict": "allow"
+  },
+  {
+   "name": "six",
+   "version": "1.17.0",
+   "license": "MIT",
+   "source": "metadata",
+   "verdict": "allow"
+  },
+  {
+   "name": "starlette",
+   "version": "1.10.0",
+   "license": "BSD-3-Clause",
+   "source": "static",
+   "verdict": "allow"
+  },
+  {
+   "name": "typing_extensions",
+   "version": "4.16.0",
+   "license": "PSF-2.0",
+   "source": "static",
+   "verdict": "allow"
+  },
+  {
+   "name": "typing-inspection",
+   "version": "0.4.4",
+   "license": "MIT",
+   "source": "static",
+   "verdict": "allow"
+  },
+  {
+   "name": "uvicorn",
+   "version": "0.54.0",
+   "license": "BSD-3-Clause",
+   "source": "static",
+   "verdict": "allow"
+  }
+ ]
+}
