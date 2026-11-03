@@ -69,7 +69,11 @@ def _zip_matches_head(zip_path: str) -> tuple[bool | None, str]:
         for f in sorted(head_files & zip_files):
             blob = subprocess.run([git, "show", f"HEAD:{f}"], cwd=ROOT,
                                   capture_output=True).stdout
-            if blob != z.read("sec1804/" + f):
+            packed = z.read("sec1804/" + f)
+            # 换行统一后再比：git archive 导出 LF，git show 在 Windows 上给 CRLF，
+            # 逐字节比会把换行风格当成内容差异（实测 .gitignore 等 3 个文件就是这样"不一致"）。
+            # 内容差异仍然会被抓到，只是不受换行噪声干扰。
+            if blob.replace(b"\r\n", b"\n") != packed.replace(b"\r\n", b"\n"):
                 diff.append(f)
     ok = not only_head and not only_zip and not diff
     note = f"rev={rev} head={len(head_files)} zip={len(zip_files)}"
