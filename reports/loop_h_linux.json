@@ -8,7 +8,7 @@
    "round": 1,
    "name": "zip_integrity",
    "ok": true,
-   "detail": "{\"no_corrupt_entry\": true, \"no_missing_core\": true, \"no_junk\": true, \"no_secrets\": true, \"entries\": 74, \"junk\": [], \"missing\": []}"
+   "detail": "{\"mode\": \"zip\", \"no_corrupt\": true, \"no_missing_core\": true, \"no_junk\": true, \"no_secrets\": true, \"entries\": 76, \"junk\": [], \"missing\": []}"
   },
   {
    "round": 2,
@@ -56,7 +56,7 @@
    "round": 9,
    "name": "openapi_doc",
    "ok": true,
-   "detail": "{\"spec_ok\": true, \"n_paths\": 27, \"paths_at_least_20\": true, \"claimed_numbers\": []}"
+   "detail": "{\"spec_ok\": true, \"n_paths\": 27, \"paths_at_least_20\": true, \"claimed_numbers\": [\"27\"]}"
   },
   {
    "round": 10,
