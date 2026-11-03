@@ -30,7 +30,7 @@ _SCHEMA = [
         status TEXT, consent_version TEXT, consent_at TEXT,
         consent_channel TEXT, is_minor INTEGER DEFAULT 0,
         retention_until TEXT, anonymized_at TEXT,
-        created_at TEXT, updated_at TEXT)""",
+        created_at TEXT, updated_at TEXT, version INTEGER DEFAULT 1)""",
     """CREATE TABLE IF NOT EXISTS transcripts (
         id TEXT PRIMARY KEY, candidate_id TEXT NOT NULL,
         body TEXT NOT NULL, is_minor INTEGER DEFAULT 0,
@@ -47,7 +47,8 @@ _SCHEMA = [
     """CREATE TABLE IF NOT EXISTS deletion_log (
         id INTEGER PRIMARY KEY,
         ts TEXT NOT NULL, entity TEXT NOT NULL, entity_id TEXT NOT NULL,
-        mode TEXT NOT NULL, rule TEXT NOT NULL, detail TEXT)""",
+        mode TEXT NOT NULL, rule TEXT NOT NULL, detail TEXT,
+        prev_hash TEXT, hash TEXT)""",
     """CREATE TABLE IF NOT EXISTS consent_record (
         id INTEGER PRIMARY KEY,
         candidate_id TEXT NOT NULL, version TEXT NOT NULL,
@@ -57,6 +58,8 @@ _SCHEMA = [
         candidate_id TEXT NOT NULL, kind TEXT NOT NULL,
         status TEXT NOT NULL, created_at TEXT NOT NULL,
         due_at TEXT NOT NULL, closed_at TEXT, note TEXT)""",
+    """CREATE TABLE IF NOT EXISTS meta (
+        k TEXT PRIMARY KEY, v TEXT NOT NULL)""",
     """CREATE TABLE IF NOT EXISTS idempotency (
         key TEXT PRIMARY KEY, actor TEXT NOT NULL, fingerprint TEXT NOT NULL,
         status INTEGER NOT NULL, body TEXT NOT NULL, created_at TEXT NOT NULL)""",
@@ -159,6 +162,10 @@ class DB:
     def one(self, sql: str, params: Iterable[Any] = ()) -> dict | None:
         rows = self.query(sql, params)
         return rows[0] if rows else None
+
+    def cursor_exec(self, sql: str, params: Iterable[Any] = ()):
+        """执行 DDL / 非标准语句（备份、schema 操作）。走同一个连接，保持 search_path 一致。"""
+        return self.execute(sql, params)
 
     def insert(self, table: str, row: dict) -> None:
         cols = ",".join(row)

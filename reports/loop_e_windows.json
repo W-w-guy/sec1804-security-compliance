@@ -1,0 +1,100 @@
+{
+ "group": "E",
+ "platform": "Windows",
+ "python": "3.11.7",
+ "seed": 20261107,
+ "rounds": [
+  {
+   "round": 1,
+   "name": "lost_update",
+   "ok": true,
+   "detail": "{\"row\": {\"area_text\": \"A\\u533a\", \"start_text\": \"\\u4e0b\\u5468\\u4e00\"}, \"both_applied\": true}"
+  },
+  {
+   "round": 2,
+   "name": "optimistic_lock",
+   "ok": true,
+   "detail": "{\"failed\": [], \"version\": 1}"
+  },
+  {
+   "round": 3,
+   "name": "partial_update",
+   "ok": true,
+   "detail": "{\"patched_field_changed\": true, \"other_fields_kept\": true}"
+  },
+  {
+   "round": 4,
+   "name": "field_level_concurrency",
+   "ok": true,
+   "detail": "{\"lost_fields\": []}"
+  },
+  {
+   "round": 5,
+   "name": "delete_update_race",
+   "ok": true,
+   "detail": "{\"deleted\": true, \"resurrected\": false}"
+  },
+  {
+   "round": 6,
+   "name": "unique_under_concurrency",
+   "ok": true,
+   "detail": "{\"no_crash\": true, \"phone_token_reused\": true, \"duplicates_detectable\": true, \"rows\": 8, \"errors\": []}"
+  },
+  {
+   "round": 7,
+   "name": "tx_isolation",
+   "ok": true,
+   "detail": "{\"half\": 0, \"none\": 0, \"ok\": 526}"
+  },
+  {
+   "round": 8,
+   "name": "audit_row_alignment",
+   "ok": true,
+   "detail": "{\"rows_25\": true, \"audit_matches\": true, \"chain_ok\": true, \"rows\": 25, \"creates\": 25}"
+  },
+  {
+   "round": 9,
+   "name": "idempotency_concurrency",
+   "ok": true,
+   "detail": "{\"exactly_one_winner\": true, \"others_conflict\": true, \"conflict_code\": true, \"winners\": 1, \"conflicts\": 9}"
+  },
+  {
+   "round": 10,
+   "name": "bulk_atomicity",
+   "ok": true,
+   "detail": "{\"status\": 403, \"before\": 0, \"after\": 0, \"atomic\": true}"
+  },
+  {
+   "round": 11,
+   "name": "cursor_paging",
+   "ok": true,
+   "detail": "{\"offset_paging_has_overlap\": true, \"cursor_api_exists\": true, \"cursor_no_overlap\": true, \"overlap_count\": 1}"
+  },
+  {
+   "round": 12,
+   "name": "count_consistency",
+   "ok": true,
+   "detail": "{\"returns_6\": true, \"total_not_misleading\": true, \"count\": 6, \"field_name\": \"total_scoped_upper_bound\"}"
+  },
+  {
+   "round": 13,
+   "name": "bulk_limits",
+   "ok": true,
+   "detail": "{\"long_name_rejected\": true, \"bulk_limit_enforced\": true}"
+  },
+  {
+   "round": 14,
+   "name": "export_delete_race",
+   "ok": true,
+   "detail": "{\"exported\": null, \"alive_after\": 15, \"err\": \"candidate_not_found\"}"
+  },
+  {
+   "round": 15,
+   "name": "cross_city_concurrent_write",
+   "ok": true,
+   "detail": "{\"all_blocked\": true, \"rows_zero\": true, \"code_ok\": true, \"leaked\": 0, \"blocked\": 20, \"rows\": 0}"
+  }
+ ],
+ "passed": 15,
+ "failed": 0
+}

@@ -18,6 +18,30 @@ def _canon(*parts) -> str:
     return "|".join("" if p is None else str(p) for p in parts)
 
 
+def verify_bundle(bundle: dict) -> dict:
+    """只吃导出包，不碰数据库，独立重算链。
+
+    这是给监管方/第三方审计用的入口：把 JSON 丢进来就能判断
+    "这份审计导出有没有被改过、有没有缺行"。
+    """
+    rows = bundle.get("rows") or []
+    tampered, gaps, prev = [], [], bundle.get("genesis", GENESIS)
+    expect = rows[0]["seq"] if rows else 1
+    for r in rows:
+        if r["seq"] != expect:
+            gaps.append(expect)
+        expect = r["seq"] + 1
+        h = hashlib.sha256(_canon(r.get("prev_hash"), r["seq"], r["ts"], r["actor"],
+                                  r["role"], r["action"], r["target"], r.get("city"),
+                                  r.get("station_id"), r.get("detail") or "").encode()).hexdigest()
+        if h != r.get("hash") or r.get("prev_hash") != prev:
+            tampered.append(r["seq"])
+        prev = r.get("hash")
+    tip_ok = (prev == bundle.get("tip"))
+    return {"ok": not tampered and not gaps and tip_ok, "rows": len(rows),
+            "tampered_seq": tampered, "missing_seq": gaps, "tip_matches": tip_ok}
+
+
 class Audit:
     def __init__(self, db, settings=None):
         self.db = db
@@ -130,6 +154,27 @@ class Audit:
             # 告警本身也入链，避免“告警被悄悄删掉”
             self.append("system", "system", "alert.raised", target=actor,
                         detail={"kind": action, "count": count, "threshold": threshold}, now=now)
+
+    # ---------- 监管导出（可离线独立验证） ----------
+    def export_bundle(self, limit: int | None = None) -> dict:
+        """导出审计包：带每行 hash、prev_hash 与链尾。
+
+        为什么要"可独立验证"：监管方拿到导出文件后，不该依赖我们的服务
+        来判断真伪。verify_bundle() 只吃这个 JSON，不碰库。
+        """
+        sql = "SELECT * FROM audit_log ORDER BY seq"
+        if limit:
+            sql += f" LIMIT {int(limit)}"
+        rows = self.db.query(sql)
+        out_rows = [{k: r[k] for k in ("seq", "ts", "actor", "role", "action", "target",
+                                       "city", "station_id", "detail",
+                                       "prev_hash", "hash")} for r in rows]
+        return {"algorithm": "sha256(prev_hash|seq|ts|actor|role|action|target|city|station_id|detail)",
+                "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "rows": out_rows,
+                "tip": out_rows[-1]["hash"] if out_rows else GENESIS,
+                "genesis": GENESIS,
+                "verified": self.verify()}
 
     def alerts(self) -> list[dict]:
         return self.db.query("SELECT * FROM audit_alert ORDER BY id")

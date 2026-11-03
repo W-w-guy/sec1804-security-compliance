@@ -6,6 +6,7 @@ create_app(container) 便于测试注入独立容器；模块级 app 为默认�
 from __future__ import annotations
 
 import base64
+import os
 import json
 import threading
 import time
@@ -55,16 +56,41 @@ class UnmaskIn(BaseModel):
     mapping: dict[str, str] = Field(default_factory=dict)
 
 
+class CandidateUpdateIn(BaseModel):
+    """部分更新：只允许这些字段，未知字段 422（与创建保持一致的严格口径）。"""
+    model_config = ConfigDict(extra="forbid")
+    area_text: str | None = None
+    job_type: str | None = None
+    has_ebike: bool | None = None
+    start_text: str | None = None
+    experience_text: str | None = None
+    health_cert: str | None = None
+    source_channel: str | None = None
+    station_id: str | None = None
+    city: str | None = None
+    birth_ym: str | None = None
+    is_minor: bool | None = None
+    status: str | None = None
+
+
+class BulkIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    items: list[CandidateIn]
+
+
+MAX_FIELD = 512
+
+
 class CandidateIn(BaseModel):
     # 拒绝未知字段：客户端塞 role / actor / all_cities 这类字段应当 422，
     # 而不是被静默忽略（静默忽略会让攻击者以为生效、也让审计看不清意图）
     model_config = ConfigDict(extra="forbid")
 
-    name: str
-    phone: str
+    name: str = Field(max_length=MAX_FIELD)
+    phone: str = Field(max_length=MAX_FIELD)
     city: str | None = None
     station_id: str | None = None
-    area_text: str | None = None
+    area_text: str | None = Field(default=None, max_length=MAX_FIELD)
     job_type: str | None = "fulltime"
     has_ebike: bool | None = None
     start_text: str | None = None
@@ -227,6 +253,51 @@ def _register(api: FastAPI, box: Container) -> None:
     def health():
         return {"status": "ok", "module": "task-5-security-compliance", "version": VERSION}
 
+    @api.get("/health/deep", tags=["ops"])
+    def health_deep():
+        """深度自检：逐项检查真依赖，**任何一项不过就 ok=false**。
+
+        为什么不能只看 /health：F13 轮要的就是"不得假绿"。
+        /health 只证明进程活着；密钥坏了、库连不上，它照样 200。
+        """
+        checks = {}
+        try:
+            box.db.one("SELECT 1 AS ok")
+            checks["db"] = {"ok": True}
+        except Exception as e:                      # noqa: BLE001
+            checks["db"] = {"ok": False, "error": type(e).__name__}
+        try:
+            from app.kms import FileKMS, key_fingerprint
+            # ★ 光比指纹不够：FileKMS 的 _load() 在文件缺失时会**自举重建**，
+            #   若密钥由 KMS_SECRET 派生，重建出来的指纹与原来一致 → 指纹校验发现不了。
+            #   F13 轮实测就是这种情况（把 keys.json 移走，deep 仍然全绿）。
+            #   所以还要单独检查密钥文件是否真的存在。
+            file_present = True
+            if isinstance(box.kms, FileKMS):
+                file_present = os.path.exists(os.path.join(box.settings.kms_dir, "keys.json"))
+            fp = key_fingerprint(box.kms)
+            row = box.db.one("SELECT v FROM meta WHERE k='kms_fingerprint'")
+            checks["kms"] = {"ok": bool(row) and row["v"] == fp and file_present,
+                             "fingerprint": fp[:16],
+                             "bound": bool(row),
+                             "key_file_present": file_present}
+        except Exception as e:                      # noqa: BLE001
+            checks["kms"] = {"ok": False, "error": type(e).__name__}
+        try:
+            v = box.audit.verify()
+            checks["audit_chain"] = {"ok": v["ok"], "rows": v["rows"],
+                                     "tampered_seq": v["tampered_seq"][:5]}
+        except Exception as e:                      # noqa: BLE001
+            checks["audit_chain"] = {"ok": False, "error": type(e).__name__}
+        try:
+            d = box.retention.deletions_verify()
+            checks["deletion_chain"] = {"ok": d["ok"], "rows": d["rows"]}
+        except Exception as e:                      # noqa: BLE001
+            checks["deletion_chain"] = {"ok": False, "error": type(e).__name__}
+        ok = all(c.get("ok") for c in checks.values())
+        return {"ok": ok, "checked_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "checks": checks}
+
     @api.post("/api/v1/auth/token", tags=["auth"])
     def auth_token(body: TokenIn):
         """演示/测试签发入口；生产由员工中心用同一 claims 结构签发。"""
@@ -283,15 +354,34 @@ def _register(api: FastAPI, box: Container) -> None:
 
     @api.get("/api/v1/candidates", tags=["candidates"])
     def list_candidates(limit: int | None = None, offset: int = 0,
+                        cursor_from: str | None = None,
                         p: Principal = Depends(principal)):
         if limit is not None and (limit < 1 or limit > 500):
             raise ApiError("limit 需在 1..500 之间", code="bad_limit", status=422)
         if offset < 0:
             raise ApiError("offset 不能为负", code="bad_offset", status=422)
-        items = svc.list(p, limit=limit, offset=offset)
+        items = svc.list(p, limit=limit, offset=offset, cursor_from=cursor_from)
         total = box.db.one("SELECT COUNT(*) AS c FROM candidates")["c"]
         return {"items": items, "count": len(items), "limit": limit,
-                "offset": offset, "total_scoped_upper_bound": int(total)}
+                "offset": offset, "next_cursor": items[-1]["id"] if items else None,
+                "total_scoped_upper_bound": int(total)}
+
+    @api.patch("/api/v1/candidates/{cid}", tags=["candidates"])
+    def update_candidate(cid: str, body: CandidateUpdateIn,
+                         if_match: str | None = Header(default=None, alias="If-Match"),
+                         p: Principal = Depends(principal)):
+        patch = {k: v for k, v in body.model_dump().items() if v is not None}
+        ev = None
+        if if_match:
+            try:
+                ev = int(str(if_match).strip('"'))
+            except ValueError:
+                raise ApiError("If-Match 必须是整数版本号", code="bad_if_match", status=422)
+        return svc.update(p, cid, patch, expected_version=ev)
+
+    @api.post("/api/v1/candidates/bulk", tags=["candidates"])
+    def create_candidates_bulk(body: BulkIn, p: Principal = Depends(principal)):
+        return svc.create_many(p, [i.model_dump() for i in body.items])
 
     @api.get("/api/v1/candidates/{cid}", tags=["candidates"])
     def get_candidate(cid: str, full: bool = False, approval_id: str | None = None,

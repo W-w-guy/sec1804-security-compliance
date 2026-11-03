@@ -56,19 +56,19 @@
    "round": 9,
    "name": "db_unreachable",
    "ok": true,
-   "detail": "{\"failed_fast\": true, \"seconds\": 2.06, \"err\": \"InterfaceError\"}"
+   "detail": "{\"failed_fast\": true, \"seconds\": 2.08, \"err\": \"InterfaceError\"}"
   },
   {
    "round": 10,
    "name": "pagination_capacity",
    "ok": true,
-   "detail": "{\"bulk_returns_all\": true, \"pagination_supported\": true, \"bulk_under_3s\": true, \"rows\": 500, \"bulk_seconds\": 0.39}"
+   "detail": "{\"bulk_returns_all\": true, \"pagination_supported\": true, \"bulk_under_3s\": true, \"rows\": 500, \"bulk_seconds\": 0.41}"
   },
   {
    "round": 11,
    "name": "audit_scale_verify",
    "ok": true,
-   "detail": "{\"chain_ok\": true, \"verify_under_10s\": true, \"tail_under_1s\": true, \"rows\": 3000, \"insert_s\": 1.75, \"verify_s\": 0.01, \"tail_s\": 0.0}"
+   "detail": "{\"chain_ok\": true, \"verify_under_10s\": true, \"tail_under_1s\": true, \"rows\": 3000, \"insert_s\": 1.82, \"verify_s\": 0.01, \"tail_s\": 0.0}"
   },
   {
    "round": 12,

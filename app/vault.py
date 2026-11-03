@@ -155,6 +155,24 @@ class Vault:
                           detail={"from": old, "to": new, "reencrypted": moved}, now=now)
         return {"from": old, "to": new, "reencrypted": moved}
 
+    def rollback_to(self, version: int, actor: str = "system",
+                    now: float | None = None) -> dict:
+        """把"当前密钥版本"指针退回旧版本（只回退指针，旧的密钥材料仍在）。
+
+        用途：新版本密钥上线后发现问题，需要立刻回到旧版本继续服务。
+        注意这不能撤销"已经用新密钥加密的数据"——那部分仍按各自 key_version 解密，
+        所以回滚是安全的（不会让已加密数据变不可解）。
+        """
+        st = self.kms._load()
+        if str(version) not in (st.get("keys") or {}):
+            raise Forbidden(f"密钥版本 {version} 不存在，无法回滚", code="key_version_missing")
+        old = int(st.get("current", 1))
+        st["current"] = int(version)
+        self.kms._save(st)
+        self.audit.append(actor, "admin", "kms.rollback", target="kms",
+                          detail={"from": old, "to": int(version)}, now=now)
+        return {"from": old, "to": int(version)}
+
     def stats(self) -> dict:
         rows = self.db.query("SELECT item_type, COUNT(*) AS c FROM vault_items GROUP BY item_type")
         return {r["item_type"]: int(r["c"]) for r in rows}

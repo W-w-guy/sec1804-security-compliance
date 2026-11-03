@@ -55,7 +55,7 @@
    "round": 9,
    "name": "openapi_errorcodes",
    "ok": true,
-   "detail": "paths=25 ops=28 dup=[] err_codes=['conflict', 'forbidden', 'not_found', 'unauthorized'] bodies_ok=True framework404_json=True"
+   "detail": "paths=27 ops=31 dup=[] err_codes=['conflict', 'forbidden', 'not_found', 'unauthorized'] bodies_ok=True framework404_json=True"
   },
   {
    "round": 10,

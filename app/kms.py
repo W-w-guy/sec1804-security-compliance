@@ -6,6 +6,7 @@
 """
 from __future__ import annotations
 import base64
+import hashlib
 import json
 import os
 import secrets
@@ -184,6 +185,23 @@ def build_kms(settings) -> KMS:
         return VaultKMS(os.environ.get("VAULT_ADDR", "http://vault:8200"),
                         os.environ.get("VAULT_TOKEN", "root"))
     return FileKMS(settings.kms_dir, settings.kms_secret)
+
+
+def key_fingerprint(kms: KMS) -> str:
+    """当前密钥集的身份指纹（不含密钥本身）。
+
+    用途：把指纹写进库里。下次启动时若指纹不一致 → 说明密钥被换掉/丢失，
+    必须**拒绝启动**，而不是继续用新密钥跑。
+    F15 轮实测的坑：KMS 目录为空时会自举一把 v1 密钥，恰好与库里数据的
+    key_version=1 对得上，于是"密钥丢了"被静默掩盖 —— 数据看起来还能解，
+    但那已经是用新密钥解出来的（实际会 InvalidTag；若恰好同 secret 派生则真能解，
+    更危险：以为没事）。指纹校验把这种情况变成明确的启动失败。
+    """
+    st = kms._load()
+    ids = sorted((st.get("keys") or {}).keys())
+    raw = "|".join(f"{v}:{hashlib.sha256(base64.b64decode(st['keys'][v])).hexdigest()[:16]}"
+                   for v in ids)
+    return hashlib.sha256(raw.encode()).hexdigest()
 
 
 class FieldCipher:
