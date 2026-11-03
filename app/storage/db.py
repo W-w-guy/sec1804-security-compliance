@@ -96,26 +96,60 @@ def _pg_connect(dsn: str):
 
 
 class DB:
-    """线程安全、可注入时钟之外的最小封装。占位符统一写 ? ，PG 侧自动转 %s。"""
+    """最小存储层：sqlite（零依赖自验）与 PostgreSQL 16（pg8000，BSD）。
+
+    ★ 连接模型（G11 轮实测后重构）：
+      原来全局只有一条连接 + 一把 RLock，所有操作（含读）都被串行化，
+      8 线程并发读只跑出 1.18 倍加速 —— 读请求被写锁吃掉了。
+      现在改为 **每线程一条连接**：
+        · sqlite 开 WAL（多读一写），配 busy_timeout 让写冲突等待而不是立刻报错；
+        · PG 每线程一条 pg8000 连接，用信号量限制上限，避免把库连爆。
+      哈希链的"读上一行→写本行"仍可能撞唯一约束，由 Audit.append 的
+      "重读+退避重试"兜住；这比拿全局锁把并发读一起锁死要好得多。
+    """
+
+    MAX_PG_CONNS = 16
 
     def __init__(self, settings: Settings):
         self.settings = settings
         self._lock = threading.RLock()
         self.dialect = "pg" if settings.pg_dsn else "sqlite"
         self.schema = "public"
-        if self.dialect == "sqlite":
-            self._conn = sqlite3.connect(settings.sqlite_path, check_same_thread=False)
-            self._conn.row_factory = sqlite3.Row
-            self._conn.execute("PRAGMA journal_mode=WAL" if settings.sqlite_path != ":memory:" else "SELECT 1")
-        else:  # pragma: no cover - 需要真实 PG
-            # 用 pg8000（BSD-3）而非 psycopg（LGPL-3）：契约 v1 只允许 MIT/Apache/BSD/PostgreSQL
-            self._conn = _pg_connect(settings.pg_dsn)
-            self._conn.autocommit = True
+        self._local = threading.local()
+        self._all_conns: list = []
+        self._conns_lock = threading.Lock()
+        if self.dialect == "pg":
             self.schema = getattr(settings, "pg_schema", "public") or "public"
-            cur = self._conn.cursor()
+            self._pg_slots = threading.BoundedSemaphore(self.MAX_PG_CONNS)
+        # 主线程先建一条并做迁移，保证 schema 就绪
+        _ = self._conn
+        self._migrate()
+
+    # ---------- 连接管理 ----------
+    @property
+    def _conn(self):
+        c = getattr(self._local, "conn", None)
+        if c is not None:
+            return c
+        if self.dialect == "sqlite":
+            path = self.settings.sqlite_path
+            c = sqlite3.connect(path, check_same_thread=False, timeout=30)
+            c.row_factory = sqlite3.Row
+            c.execute("PRAGMA journal_mode=WAL")
+            c.execute("PRAGMA synchronous=NORMAL")
+            c.execute("PRAGMA busy_timeout=30000")
+        else:  # pragma: no cover
+            # 用 pg8000（BSD-3）而非 psycopg（LGPL-3）：契约 v1 只允许 MIT/Apache/BSD/PostgreSQL
+            self._pg_slots.acquire()
+            c = _pg_connect(self.settings.pg_dsn)
+            c.autocommit = True
+            cur = c.cursor()
             cur.execute(f'CREATE SCHEMA IF NOT EXISTS "{self.schema}"')
             cur.execute(f'SET search_path TO "{self.schema}"')
-        self._migrate()
+        self._local.conn = c
+        with self._conns_lock:
+            self._all_conns.append(c)
+        return c
 
     def _migrate(self) -> None:
         for stmt in _SCHEMA:
@@ -144,20 +178,20 @@ class DB:
         return cur
 
     def execute(self, sql: str, params: Iterable[Any] = ()) -> Any:
-        with self._lock:
-            cur = self._exec(sql, params)
-            if self.dialect == "sqlite":
-                self._conn.commit()
-            return cur
+        # 不加进程级锁：读并发靠每线程独立连接；写冲突靠 sqlite busy_timeout /
+        # PG 唯一约束 + 上层重试（G11 轮：加锁会让 8 线程读退化成串行）
+        cur = self._exec(sql, params)
+        if self.dialect == "sqlite":
+            self._conn.commit()
+        return cur
 
     def query(self, sql: str, params: Iterable[Any] = ()) -> list[dict]:
-        with self._lock:
-            cur = self._exec(sql, params)
-            rows = cur.fetchall()
-            if self.dialect == "sqlite":
-                return [dict(r) for r in rows]
-            cols = [d[0] for d in (cur.description or [])]
-            return [dict(zip(cols, r)) for r in rows]
+        cur = self._exec(sql, params)
+        rows = cur.fetchall()
+        if self.dialect == "sqlite":
+            return [dict(r) for r in rows]
+        cols = [d[0] for d in (cur.description or [])]
+        return [dict(zip(cols, r)) for r in rows]
 
     def one(self, sql: str, params: Iterable[Any] = ()) -> dict | None:
         rows = self.query(sql, params)
@@ -190,8 +224,10 @@ class DB:
         400 条只落 51 条 —— 链没断，但数据丢了。
         """
         if self.dialect == "sqlite":
-            with self._lock:
-                yield
+            # sqlite 的写操作本身由文件锁串行化；这里不再加进程级 RLock，
+            # 否则会把"所有读请求"也串起来（G11 轮实测并发读加速只有 1.18 倍）。
+            # 链式 append 的竞态由 Audit.append 的"插入失败→重读上一行→重试"解决。
+            yield
             return
         key = abs(hash(name)) % (2 ** 31 - 1)
         with self._lock:
@@ -202,10 +238,14 @@ class DB:
                 self._conn.cursor().execute("SELECT pg_advisory_unlock(%s)", (key,))
 
     def close(self) -> None:
-        try:
-            self._conn.close()
-        except Exception:
-            pass
+        with self._conns_lock:
+            conns, self._all_conns = list(self._all_conns), []
+        for c in conns:
+            try:
+                c.close()
+            except Exception:                       # noqa: BLE001
+                pass
+        self._local = threading.local()
 
 
 def db_fingerprint(db: DB) -> str:

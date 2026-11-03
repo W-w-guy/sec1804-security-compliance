@@ -1,0 +1,13 @@
+.git
+.gitignore
+.venv
+.venv2
+__pycache__
+*.pyc
+.pytest_cache
+.kms
+*.db
+*.db-wal
+*.db-shm
+reports/_pytest.xml
+reports/*_linux_host.json

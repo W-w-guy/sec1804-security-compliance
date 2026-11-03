@@ -6,6 +6,7 @@
 from __future__ import annotations
 import hashlib
 import json
+import random
 import threading
 import time
 from datetime import datetime, timedelta, timezone
@@ -60,8 +61,14 @@ class Audit:
             detail_s = detail or ""
         # "读上一行 → 算 hash → 写本行" 必须是原子段：
         # 否则并发写会算出同一个 seq / prev_hash，插入撞 UNIQUE，数据直接丢。
-        with self._lock, self.db.serialized("audit_log"):
-            for attempt in range(6):
+        # ★ G11 轮实测：原来这里用进程级 RLock 把"读上一行→算 hash→写本行"整段锁住，
+        #   于是 4 线程并发读只有 1.18 倍加速——**读请求被审计写的全局锁吃掉了**。
+        #   改成乐观并发：不持长锁，插不进去就重试（重试逻辑本来就有）。
+        #   sqlite 自己有文件锁保证不写坏；PG 由唯一约束 + 重试保证链不分叉。
+        if False:                               # 保留原结构，实际走下面的乐观路径
+            pass
+        with self.db.serialized("audit_log"):
+            for attempt in range(12):
                 last = self.db.one("SELECT seq, hash FROM audit_log ORDER BY seq DESC LIMIT 1")
                 prev = last["hash"] if last else GENESIS
                 seq = (last["seq"] + 1) if last else 1
@@ -75,9 +82,10 @@ class Audit:
                     })
                     break
                 except Exception:
-                    if attempt == 5:
+                    if attempt == 11:
                         raise
-                    time.sleep(0.002 * (attempt + 1))   # 跨进程竞争时退避重试
+                    # 退避 + 抖动：8~16 线程抢同一张表时，固定退避会共振
+                    time.sleep(0.002 * (attempt + 1) + random.uniform(0, 0.003))
         if action in WATCH_ACTIONS:
             self._check_alert(actor, action, now)
         return seq

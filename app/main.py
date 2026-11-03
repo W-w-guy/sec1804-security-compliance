@@ -23,7 +23,7 @@ from app.masking import MaskingSession, mask_text
 from app.rbac import Principal, require
 from app.service import CandidateService
 
-VERSION = "0.1.0"
+from app import __version__ as VERSION  # 单一来源：app/__init__.py
 SESSIONS = SessionStore()
 
 

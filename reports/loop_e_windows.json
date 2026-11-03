@@ -44,7 +44,7 @@
    "round": 7,
    "name": "tx_isolation",
    "ok": true,
-   "detail": "{\"half\": 0, \"none\": 0, \"ok\": 526}"
+   "detail": "{\"half\": 0, \"none\": 0, \"ok\": 134}"
   },
   {
    "round": 8,
@@ -68,7 +68,7 @@
    "round": 11,
    "name": "cursor_paging",
    "ok": true,
-   "detail": "{\"offset_paging_has_overlap\": true, \"cursor_api_exists\": true, \"cursor_no_overlap\": true, \"overlap_count\": 1}"
+   "detail": "{\"offset_paging_has_overlap\": true, \"cursor_api_exists\": true, \"cursor_no_overlap\": true, \"overlap_count\": 0}"
   },
   {
    "round": 12,

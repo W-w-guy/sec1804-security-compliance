@@ -441,6 +441,23 @@ ROUNDS = [(1, "audit_atomicity", d1), (2, "idempotency", d2), (3, "crash_recover
           (13, "bulk_export", d13), (14, "clock_skew", d14), (15, "event_contract", d15)]
 
 
+
+def _safe_write_report(path: str, obj) -> str:
+    """写记录文件失败（只读挂载 / 权限不足）只警告，**不影响结论与退出码**。
+
+    起因：容器里 docker cp 过来的 reports/ 属主是 root，appuser 写不进去，
+    结果是"所有轮次都跑完、结论都对，但脚本因为写文件失败而 rc=1" ——
+    结论比落盘重要，落盘失败不该让人误以为验证没过。
+    """
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(obj, fh, ensure_ascii=False, indent=1)
+        return "ok"
+    except Exception as e:                          # noqa: BLE001
+        print(f"\n[WARN] 记录未能落盘（{type(e).__name__}: {e}）—— 结论以上文输出为准")
+        return f"failed:{type(e).__name__}"
+
 def main() -> int:
     seed = int(os.environ.get("LOOP_SEED", "20261106"))
     recs = []
@@ -457,8 +474,7 @@ def main() -> int:
     out = {"group": "D", "platform": platform.system(), "python": platform.python_version(),
            "seed": seed, "rounds": recs, "passed": passed, "failed": len(recs) - passed}
     path = os.path.join(ROOT, "reports", f"loop_d_{platform.system().lower()}.json")
-    with open(path, "w", encoding="utf-8") as fh:
-        json.dump(out, fh, ensure_ascii=False, indent=1)
+    _safe_write_report(path, out)
     print(f"\nD 组结果: {passed}/{len(recs)} 通过   记录 -> {os.path.relpath(path, ROOT)}")
     return 0 if passed == len(recs) else 1
 
