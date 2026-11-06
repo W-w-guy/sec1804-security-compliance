@@ -8,3 +8,4 @@ reports/_h.xml
 *.db
 *.db-wal
 *.db-shm
+reports/zip_manifest.json

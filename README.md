@@ -65,6 +65,27 @@ reports/
 | 7 依赖扫描 + OWASP 自测报告，无未处理高危 | `tools/dep_scan.py`（许可）+ `tools/cve_scan.py`（CVE/GHSA）+ `reports/OWASP_TOP10.md` | `verify.py` 的 license_scan 步 + cve_scan 步 + `tests/test_deps.py` 5 项不变量 |
 | 8 一条命令全绿 + 验证记录 | `python -m pytest tests/ -q`；记录见下节 | — |
 
+## 交付包怎么构建（别手工 zip）
+
+```
+$ python tools/build_zip.py --out ../sec1804_sec5.zip
+entries=88 files=81 bytes=230317 sha256=2d31a203…   head=acb56d27 prefix=sec1804/ missing=[] junk=[] mismatch=[]
+RESULT: OK
+```
+
+三条硬要求，脚本每次都自检：
+
+1. **只从 `git HEAD` 出包**（`git archive`）。工作目录里 `reports/*.json` 每跑一次就会变，
+   手工 zip 会让「我交的」和「买家 clone 的」变成两份不同的东西；
+2. **带 `sec1804/` 顶层前缀**。`git archive` 默认不加，H 组按 `sec1804/...` 取文件，
+   少了前缀会被判 11 项失败（这不是代码错，是包体结构错）；
+3. **逐文件与 HEAD 比对**，换行统一后再比（Windows 的 CRLF 不是缺陷）。
+
+> 这条来自自己的事故：`loop_verify_h.py --zip xxx.zip` 当时**不认 `--zip`**，
+> 参数被静默忽略，它退回默认搜索顺序，在 `~/` 里命中一个**旧包**，把别的包体验成了 PASS。
+> 现在 8 个 `loop_verify*.py` 遇到未知参数直接非 0 退出（`tools/argv_guard.py`），
+> H 组启动时打印 `[artifact] zip=...`，明示这次到底在验哪个文件。
+
 ## 依赖：许可 与 漏洞 是两件事（验收点 7 的两个子项）
 
 验收点 7 要的是「依赖扫描 + OWASP 自测报告，**无未处理的高危项**」。这里有两个独立子项，

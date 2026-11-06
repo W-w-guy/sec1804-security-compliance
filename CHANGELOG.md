@@ -37,6 +37,10 @@ v0.1.1 把 `lock_mismatch` 做成了硬失败，本意是防「报告扫的是�
 - `loop_verify_h.py::h8`：README 数字一致性改口径 —— 只要求「当前用例数」被声明，
   README 里标注为历史（当轮记录 / 77 → 90 → 95）的数字不再判红；同时新增
   `stale_current_claims`：未标历史却写着旧数字的，仍然判失败。
+- 新增 `tools/build_zip.py`：交付包唯一构建入口。只从 `git HEAD` 出包、强制 `sec1804/` 顶层前缀、
+  逐文件与 HEAD 比对（换行统一后再比），并输出 `zip_manifest.json`（写在仓库外，避免包体描述自己）。
+  事故背景：手工 zip 会让工作目录里易变的 `reports/*.json` 混进包体，而 `git archive` 默认无顶层前缀，
+  H 组按 `sec1804/...` 取文件 → 自己打的包被判 11 项失败（结构错，不是代码错）。
 - `app/__init__.py` / README 的版本号与 CHANGELOG 对齐到 `0.1.2`（此前代码还停在 0.1.1）。
 - `tests/test_deps.py::test_license_scan_matches_lock`：断言收紧为「rows 必须覆盖 lock 全量」，
   并做过变异测试验证它真的会红（见下）。
