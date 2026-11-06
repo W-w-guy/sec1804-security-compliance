@@ -7,10 +7,10 @@ OpenAPI 由 FastAPI 自动生成（`/docs`、`/openapi.json`）。本模块只�
 ## 60 秒跑起来（桌面机，无需 Docker / 无需数据库）
 
 ```bash
-python -m pip install -r requirements.txt      # 6 个依赖
+python -m pip install -r requirements.lock     # 36 个包，全闭包锁定（交付物实测就是这组版本）
 python run.py demo                             # 六条验收链路一次性跑通
 python -m pytest tests/ -q                     # 全部单测
-python tools/verify.py                         # 一键验收（含召回率/篡改定位/许可扫描）
+python tools/verify.py                         # 一键验收（六步：单测/召回/篡改定位/演示/许可扫描/漏洞扫描）
 ```
 
 全栈（PostgreSQL 16 + Redis 7.2 + Vault + API）：
@@ -39,7 +39,8 @@ app/
 tools/
   gen_samples.py   生成 ≥200 条合成样本（种子固定，可复现）
   eval_masking.py  召回率 / 误报率评估
-  dep_scan.py      依赖闭包许可扫描（只允许 MIT/Apache/BSD/PostgreSQL）
+  dep_scan.py      许可扫描（锁文件全闭包，只允许 MIT/Apache/BSD/PostgreSQL）
+  cve_scan.py      漏洞扫描（OSV.dev；--offline 只复核已提交报告，不联网）
   pg_smoke.py      PostgreSQL 直连冒烟
   verify.py        一键验收，产出 reports/verify_<platform>.json
 data/
@@ -48,10 +49,10 @@ data/
 CHANGELOG.md   变化与验证结论
 .dockerignore  构建上下文裁剪
 reports/
-  verify_windows.json / verify_linux.json / dep_scan.json / OWASP_TOP10.md
+  verify_windows.json / verify_linux.json / dep_scan.json / cve_scan.json / OWASP_TOP10.md
 ```
 
-## 六个验收点怎么对上
+## 八个验收点怎么对上
 
 | 验收要求 | 实现 | 用例 |
 |---|---|---|
@@ -61,8 +62,51 @@ reports/
 | 4 篡改审计任意一行能指出位置 | `Audit.verify()` 逐行重算 + `Audit.locate(seq)` 给字段级差异；断号另报 `missing_seq` | `test_tamper_any_row_is_located`（1/4/9 三处）、`test_delete_row_leaves_gap` |
 | 5 时间快进清理 + 撤回同意立即删除 + 留记录 | `Retention.run(now=...)` 全部入口接受注入时钟；`deletion_log` 记录规则/模式 | `tests/test_retention.py`（7 项） |
 | 6 越权被拒，每个角色都有用例 | `rbac.enforce_scope` 城市+站点双重判定 | `tests/test_rbac.py` 对 5 个角色逐个参数化越权 |
-| 7 依赖扫描 + OWASP 自测报告，无未处理高危 | `tools/dep_scan.py` + `reports/OWASP_TOP10.md` | `verify.py` 的 license_scan 步骤 |
+| 7 依赖扫描 + OWASP 自测报告，无未处理高危 | `tools/dep_scan.py`（许可）+ `tools/cve_scan.py`（CVE/GHSA）+ `reports/OWASP_TOP10.md` | `verify.py` 的 license_scan 步 + cve_scan 步 + `tests/test_deps.py` 5 项不变量 |
 | 8 一条命令全绿 + 验证记录 | `python -m pytest tests/ -q`；记录见下节 | — |
+
+## 依赖：许可 与 漏洞 是两件事（验收点 7 的两个子项）
+
+验收点 7 要的是「依赖扫描 + OWASP 自测报告，**无未处理的高危项**」。这里有两个独立子项，
+本仓库分别用两个脚本、两份报告交付，互不顶替：
+
+| 子项 | 脚本 | 报告 | 判据 |
+|---|---|---|---|
+| 许可证合规 | `tools/dep_scan.py` | `reports/dep_scan.json` | 只允许 MIT / Apache-2.0 / BSD / PostgreSQL；`deny` 或 `unknown` 即失败 |
+| 已知漏洞 | `tools/cve_scan.py` | `reports/cve_scan.json` | 查 OSV.dev；`HIGH` / `CRITICAL` 一条未处理即失败；无网用 `--offline` 复核 |
+
+扫描对象是 **`requirements.lock` 全闭包 36 个包**，即交付物 `pip install` 后实际装的版本。
+
+```
+$ python tools/dep_scan.py
+scope=requirements.lock 全闭包（交付物实际安装的版本） deps=36 denied=0 unknown=0 lock_mismatch=0 ok=True
+$ python tools/cve_scan.py
+packages=36 with_vulns=0 unhandled=0 ok=True
+```
+
+**这一块原来是个真缺陷，值得说清楚**（2026-11-06 补）：
+
+初版只做了许可扫描，却在 OWASP A06 写了「已控制」，标书里也只能写「CVE 比对未做」。
+按 OSV 对当时钉住的版本实测：
+
+| 依赖 | 当时钉的版本 | 结果 |
+|---|---|---|
+| `pg8000` | 1.31.2 | **HIGH**：GHSA-wq2g-r956-j8cc，SQL 注入（修复 1.31.5） |
+| `cryptography` | 44.0.0 | 6 条，含 4 个 **HIGH**（OpenSSL / PKCS#7 / 子群攻击） |
+| `fastapi` → `starlette` | 0.115.6 → 0.41.3 | 11 条，含 HIGH |
+
+**为什么长期没被发现**：单测跑在本机后来装的 `cryptography 50.0.2 / pg8000 1.31.6` 上，
+而 `requirements.txt` 钉的是有漏洞的旧版——「90 项全绿」与「交付物带 HIGH 漏洞」可以同时成立。
+一个数据安全模块交付里带着 HIGH 级 SQL 注入，是拒收的充分理由。
+
+修法不是「改个版本号」，而是把三件事变成机器可检查的不变量（`tests/test_deps.py` 5 项）：
+
+1. `requirements.txt` / `requirements-dev.txt` 每个钉住的版本必须与 `requirements.lock` 逐字一致；
+2. 提交的 `reports/cve_scan.json` 的版本快照必须等于当前 lock（**报告不许过期**）；
+3. 报告里不许留 `HIGH` / `CRITICAL`；有 CRITICAL 的必须有修复版本。
+
+并且 `requirements.lock` 是在**干净 venv** 里 `pip install` 后 `pip freeze` 出来的，
+95 项单测就是在这组版本上跑通的——「钉住的 = 验证过的 = 扫描过的」三者不再分叉。
 
 ## 验证记录（命令、输入、期望输出；复跑同结论）
 
@@ -70,10 +114,10 @@ reports/
 
 ```
 $ python tools/run_tests.py
-77 passed
+95 passed
 ```
-期望：`77 collected / 77 passed`，0 failed。复跑一致（无随机、无网络、无时钟依赖）。
-两平台实测：**Windows 11 / Python 3.11.7 → 77 passed**；**Ubuntu 24.04 / Python 3.12.3 → 77 passed**。
+期望：`95 collected / 95 passed`，0 failed。复跑一致（无随机、无网络、无时钟依赖）。
+两平台实测：**Windows 11 / Python 3.11.7 → 95 passed**；**Ubuntu 24.04 / Python 3.12.3 → 95 passed**。
 
 > 为什么要包装一层 `tools/run_tests.py` 而不是直接 `python -m pytest`：
 > 机器上若装了 ROS2，`/opt/ros/*/lib/python3.12/site-packages` 里的 `launch_testing`
@@ -81,6 +125,12 @@ $ python tools/run_tests.py
 > → pytest 在**收集阶段**退出码 3，一条用例都没跑。`-p no:launch_testing` 也不行，
 > 还有第二个入口点会因未知 hook 触发 INTERNALERROR。包装器关掉插件自动加载即可。
 > **这个坑 Windows 上永远看不到**——这就是"双平台各跑一遍"的价值。
+
+> **用例数变化（写清楚，免得两处数字对不上被当成错）**：
+> `77` → `90` → `95` 是我加了三批测试：先补 A~H 组对抗用例（→90），
+> 2026-11-06 再加 `tests/test_deps.py` 5 项（依赖版本不变量，见「依赖：许可 与 漏洞 是两件事」）。
+> `reports/loop_*.json` 与下面 H 节里的 `tests=77` 是**当轮记录文件里的原值**，我没有改写历史记录；
+> **当前权威计数看 `reports/verify_<platform>.json` 的 `unit_tests.collected`，以及本节命令的实际输出。**
 
 ### B. 脱敏召回与误报（合成集 228 条）
 
@@ -139,8 +189,8 @@ $ python run.py demo
 
 ```
 $ python tools/verify.py
-[PASS] unit_tests / masking_recall / audit_tamper_locate / e2e_demo / license_scan
-RESULT: ALL PASS      记录 -> reports/verify_windows.json
+[PASS] unit_tests / masking_recall / audit_tamper_locate / e2e_demo / license_scan / cve_scan
+RESULT: ALL PASS（6 步）      记录 -> reports/verify_windows.json
 
 $ (Ubuntu) python tools/verify.py
 platform=Linux python=3.12.3   RESULT: ALL PASS
@@ -158,7 +208,7 @@ Linux  : 10/10（种子 20261103 / 7 / 99991）
 
 十轮各自打不同面：全量单测 / 脱敏召回 / 审计篡改（随机行 + 4 种篡改手法）/
 密钥轮换 / 越权矩阵（5 角色 × 城市·站点）/ 保留期快进 / 撤回同意 / 审批四项反向 /
-接口契约 / 端到端 + 许可扫描。
+接口契约 / 端到端 + 许可扫描 + 漏洞扫描。
 
 ### H. 真容器 + 真 PostgreSQL（Ubuntu 24.04，Docker 29.1.3 / Compose 2.40.3）
 
@@ -167,11 +217,11 @@ $ docker compose up -d --build
  Container sec1804-db-1     Healthy
  Container sec1804-cache-1  Healthy
  Container sec1804-api-1    Started
-$ curl -s localhost:18080/health
-{"status":"ok","module":"task-5-security-compliance","version":"0.1.0"}
-$ curl -s localhost:18080/openapi.json | jq '.paths|length'
-23
-$ curl -s -XPOST localhost:18080/api/v1/vault/tokenize -H "Authorization: Bearer $TOK" \
+$ curl -s localhost:18081/health
+{"status":"ok","module":"task-5-security-compliance","version":"0.1.1"}
+$ curl -s localhost:18081/openapi.json | jq '.paths|length'
+27
+$ curl -s -XPOST localhost:18081/api/v1/vault/tokenize -H "Authorization: Bearer $TOK" \
        -d '{"type":"手机号","value":"13800138000"}'
 {"token":"vt_gfJAk30w3G4jfqLZJDUUOZfpTh","type":"phone","masked":"138****8000"}
 $ docker exec sec1804-db-1 psql -U sec -d sec1804 -tAc \
@@ -206,7 +256,7 @@ PG_RESULT: ALL PASS
 [PASS] B6  restart_chain            rows=10 chain_ok=True key_persist=True
 [PASS] B7  rbac_matrix_snapshot     5 角色 26 项权限逐项一致，无悄悄放权
 [PASS] B8  retention_boundary       90d/180d/24h 边界：差 1 秒保留、整点触发
-[PASS] B9  openapi_errorcodes       23 路径 25 操作，operationId 无重复，错误码唯一且都有 code+message
+[PASS] B9  openapi_errorcodes       27 路径 33 操作，operationId 无重复，错误码唯一且都有 code+message
 [PASS] B10 vault_backend            versions 2->3 keylen=32 old_key_stable=True
 B 组结果: 10 通过 / 0 失败 / 0 跳过
 ```
@@ -237,7 +287,7 @@ Windows 宿主机上 B3/B10 会显式 SKIP（无 PG / 无 Vault），**不计为
 $ docker exec -e PG_DSN=postgresql://sec:sec@db:5432/sec1804 \
     -e VAULT_ADDR=http://vault:8200 -e VAULT_TOKEN=root sec1804-api-1 \
     python tools/run_tests.py --junit-xml=/tmp/j.xml
-JUNIT tests=77 failures=0 errors=0
+JUNIT tests=77 failures=0 errors=0   # 当轮的用例数，见下方『用例数变化』
 
 $ docker exec ... python tools/verify.py
 [PASS] ×5   RESULT: ALL PASS
@@ -324,7 +374,7 @@ D 组结果: 15/15 通过
 
 | 组 | 主题 | Windows | Ubuntu（容器，真 PG16 + 真 Vault 1.18） |
 |---|---|---|---|
-| 单测 | 功能 | **90 passed** | **90 passed**（JUnit 0 fail / 0 error） |
+| 单测 | 功能 | **90 passed**（当轮记录；当前 95） | **90 passed**（当轮记录；当前 95） |
 | verify | 一键验收 | ALL PASS | ALL PASS |
 | A（10 轮） | 功能面 | 10/10 | 10/10 |
 | B（10 轮） | 并发/跨方言/边界/KMS | 8 pass + 2 skip（无 PG/Vault，**不计为通过**） | 10/10 |
@@ -450,7 +500,7 @@ G 组结果: 15/15 通过（Ubuntu 容器，真 PostgreSQL 16）
 ```
 [PASS] H1  zip_integrity         73 条目，无损坏、无 __pycache__/.venv/.kms/.db/密钥残留
 [PASS] H2  no_abs_paths          源码与文档里 0 处本机绝对路径（E:\ / /home/xxx / C:\Users）
-[PASS] H3  clean_extract_tests   **全新解压**后一条命令：90 tests / 0 fail / 0 error
+[PASS] H3  clean_extract_tests   **全新解压**后一条命令：95 tests / 0 fail / 0 error
 [PASS] H4  demo_readable         demo 输出 17 行、有编号步骤、无 traceback、关键结论齐全
 [PASS] H5  verify_five_steps     5 步全 PASS，记录落盘，末行 "ALL PASS"
 [PASS] H6  compose_valid         服务齐全、Vault 在 profile、db/cache 有 healthcheck、端口可覆盖
@@ -487,7 +537,7 @@ H 组结果: 15/15 通过
 
 | 组 | 主题 | Windows 11 / Py3.11.7 | Ubuntu 容器（真 PG16 + 真 Vault 1.18） |
 |---|---|---|---|
-| 单测 | 功能 | **90 passed** | **90 passed**（JUnit 0 fail / 0 error） |
+| 单测 | 功能 | **90 passed**（当轮记录；当前 95） | **90 passed**（当轮记录；当前 95） |
 | verify | 一键验收 | ALL PASS | ALL PASS |
 | A（10 轮） | 功能面 | 10/10 | 10/10 |
 | B（10 轮） | 并发/跨方言/边界/KMS | 8 pass + 2 skip（无 PG/Vault，**不计为通过**） | 10/10 |

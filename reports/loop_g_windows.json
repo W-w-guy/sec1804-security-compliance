@@ -8,73 +8,73 @@
    "round": 1,
    "name": "create_throughput",
    "ok": true,
-   "detail": "{\"100\": {\"total_s\": 0.08, \"per_ms\": 0.815, \"per_sec\": 1227.5}, \"500\": {\"total_s\": 0.38, \"per_ms\": 0.753, \"per_sec\": 1328.0}, \"2000\": {\"total_s\": 1.47, \"per_ms\": 0.736, \"per_sec\": 1359.5}, \"growth\": {\"order\": 1.0, \"t_ratios\": [4.62, 3.91], \"n_ratios\": [5.0, 4.0]}}"
+   "detail": "{\"100\": {\"total_s\": 0.1, \"per_ms\": 1.046, \"per_sec\": 956.3}, \"500\": {\"total_s\": 0.44, \"per_ms\": 0.887, \"per_sec\": 1127.3}, \"2000\": {\"total_s\": 1.78, \"per_ms\": 0.891, \"per_sec\": 1121.9}, \"growth\": {\"order\": 1.0, \"t_ratios\": [4.24, 4.02], \"n_ratios\": [5.0, 4.0]}}"
   },
   {
    "round": 2,
    "name": "read_latency",
    "ok": true,
-   "detail": "{\"100\": {\"ms_per_read\": 0.153}, \"500\": {\"ms_per_read\": 0.153}, \"2000\": {\"ms_per_read\": 0.158}, \"growth\": {\"order\": 1.0, \"t_ratios\": [1.0, 1.03], \"n_ratios\": [5.0, 4.0]}}"
+   "detail": "{\"100\": {\"ms_per_read\": 0.186}, \"500\": {\"ms_per_read\": 0.197}, \"2000\": {\"ms_per_read\": 0.184}, \"growth\": {\"order\": 1.0, \"t_ratios\": [1.06, 0.94], \"n_ratios\": [5.0, 4.0]}}"
   },
   {
    "round": 3,
    "name": "list_paging",
    "ok": true,
-   "detail": "{\"first_page_fast\": true, \"deep_offset_slow_or_ok\": true, \"cursor_not_worse_than_offset\": true, \"first_s\": 0.009, \"deep_offset_s\": 0.019, \"cursor_s\": 0.008, \"N\": 3000}"
+   "detail": "{\"first_page_fast\": true, \"deep_offset_slow_or_ok\": true, \"cursor_not_worse_than_offset\": true, \"first_s\": 0.011, \"deep_offset_s\": 0.014, \"cursor_s\": 0.021, \"N\": 3000}"
   },
   {
    "round": 4,
    "name": "export_throughput",
    "ok": true,
-   "detail": "{\"200\": {\"s\": 0.02, \"bytes\": 17529, \"ms_per_row\": 0.115}, \"1000\": {\"s\": 0.11, \"bytes\": 87930, \"ms_per_row\": 0.112}}"
+   "detail": "{\"200\": {\"s\": 0.02, \"bytes\": 17529, \"ms_per_row\": 0.12}, \"1000\": {\"s\": 0.12, \"bytes\": 87930, \"ms_per_row\": 0.125}}"
   },
   {
    "round": 5,
    "name": "audit_append",
    "ok": true,
-   "detail": "{\"500\": {\"total_s\": 0.01, \"per_ms\": 0.023}, \"2000\": {\"total_s\": 0.05, \"per_ms\": 0.025}, \"5000\": {\"total_s\": 0.15, \"per_ms\": 0.031}, \"growth\": {\"order\": 1.0, \"t_ratios\": [4.36, 3.08], \"n_ratios\": [4.0, 2.5]}}"
+   "detail": "{\"500\": {\"total_s\": 0.01, \"per_ms\": 0.029}, \"2000\": {\"total_s\": 0.06, \"per_ms\": 0.032}, \"5000\": {\"total_s\": 0.16, \"per_ms\": 0.032}, \"growth\": {\"order\": 1.0, \"t_ratios\": [4.33, 2.56], \"n_ratios\": [4.0, 2.5]}}"
   },
   {
    "round": 6,
    "name": "audit_verify_order",
    "ok": true,
-   "detail": "{\"500\": {\"verify_s\": 0.002, \"rows\": 500, \"ok\": true, \"us_per_row\": 4.0}, \"2000\": {\"verify_s\": 0.007, \"rows\": 2000, \"ok\": true, \"us_per_row\": 3.5}, \"5000\": {\"verify_s\": 0.018, \"rows\": 5000, \"ok\": true, \"us_per_row\": 3.6}, \"growth\": {\"order\": 1.0, \"t_ratios\": [3.55, 2.52], \"n_ratios\": [4.0, 2.5]}}"
+   "detail": "{\"500\": {\"verify_s\": 0.002, \"rows\": 500, \"ok\": true, \"us_per_row\": 3.5}, \"2000\": {\"verify_s\": 0.007, \"rows\": 2000, \"ok\": true, \"us_per_row\": 3.6}, \"5000\": {\"verify_s\": 0.02, \"rows\": 5000, \"ok\": true, \"us_per_row\": 4.0}, \"growth\": {\"order\": 1.0, \"t_ratios\": [4.11, 2.78], \"n_ratios\": [4.0, 2.5]}}"
   },
   {
    "round": 7,
    "name": "audit_query",
    "ok": true,
-   "detail": "{\"by_actor_found\": true, \"by_action_found\": true, \"by_actor_fast\": true, \"by_action_fast\": true, \"tail_fast\": true, \"by_actor_s\": 0.0, \"by_action_s\": 0.011, \"tail_s\": 0.0, \"N\": 5000}"
+   "detail": "{\"by_actor_found\": true, \"by_action_found\": true, \"by_actor_fast\": true, \"by_action_fast\": true, \"tail_fast\": true, \"by_actor_s\": 0.001, \"by_action_s\": 0.011, \"tail_s\": 0.0, \"N\": 5000}"
   },
   {
    "round": 8,
    "name": "retention_scale",
    "ok": true,
-   "detail": "{\"200\": {\"s\": 0.03, \"deleted\": 200, \"ms_per_row\": 0.13}, \"1000\": {\"s\": 0.12, \"deleted\": 1000, \"ms_per_row\": 0.122}}"
+   "detail": "{\"200\": {\"s\": 0.03, \"deleted\": 200, \"ms_per_row\": 0.173}, \"1000\": {\"s\": 0.14, \"deleted\": 1000, \"ms_per_row\": 0.142}}"
   },
   {
    "round": 9,
    "name": "mask_throughput",
    "ok": true,
-   "detail": "{\"1000\": {\"ms\": 3.0, \"kb_per_s\": 327.5}, \"10000\": {\"ms\": 26.1, \"kb_per_s\": 373.8}, \"100000\": {\"ms\": 265.6, \"kb_per_s\": 367.7}, \"throughput_ratio\": 1.12}"
+   "detail": "{\"1000\": {\"ms\": 2.1, \"kb_per_s\": 474.9}, \"10000\": {\"ms\": 21.3, \"kb_per_s\": 459.1}, \"100000\": {\"ms\": 212.5, \"kb_per_s\": 459.5}, \"throughput_ratio\": 0.97}"
   },
   {
    "round": 10,
    "name": "kms_throughput",
    "ok": true,
-   "detail": "{\"enc_per_sec\": 12215.2, \"dec_per_sec\": 23708.7, \"enc_fast\": true, \"dec_fast\": true}"
+   "detail": "{\"enc_per_sec\": 11484.1, \"dec_per_sec\": 20727.5, \"enc_fast\": true, \"dec_fast\": true}"
   },
   {
    "round": 11,
    "name": "concurrent_read",
    "ok": true,
-   "detail": "{\"single_thread_ok\": true, \"no_slowdown_at_8\": true, \"chain_intact_under_concurrency\": true, \"every_read_audited\": true, \"1\": {\"ops\": 100, \"s\": 0.034, \"ops_per_s\": 2948.9}, \"4\": {\"ops\": 400, \"s\": 0.094, \"ops_per_s\": 4257.2}, \"8\": {\"ops\": 800, \"s\": 0.253, \"ops_per_s\": 3166.3}, \"speedup_8x\": 1.07, \"dialect\": \"sqlite\", \"floor_ops_per_s\": 1000, \"bottleneck\": \"读必留痕 → 每次读都要写一条审计；sqlite 单写者 / PG 两次往返，读吞吐因此被审计写封顶\", \"scale_path\": \"PG 上可按 (actor) 哈希分表或改用异步 outbox 批量落盘（需接受『先返回后落盘』的时间窗）；本模块选择同步落盘换取可追溯性\"}"
+   "detail": "{\"single_thread_ok\": true, \"no_slowdown_at_8\": true, \"chain_intact_under_concurrency\": true, \"every_read_audited\": true, \"1\": {\"ops\": 100, \"s\": 0.05, \"ops_per_s\": 1987.7}, \"4\": {\"ops\": 400, \"s\": 0.107, \"ops_per_s\": 3743.6}, \"8\": {\"ops\": 800, \"s\": 0.199, \"ops_per_s\": 4024.8}, \"speedup_8x\": 2.02, \"dialect\": \"sqlite\", \"floor_ops_per_s\": 1000, \"bottleneck\": \"读必留痕 → 每次读都要写一条审计；sqlite 单写者 / PG 两次往返，读吞吐因此被审计写封顶\", \"scale_path\": \"PG 上可按 (actor) 哈希分表或改用异步 outbox 批量落盘（需接受『先返回后落盘』的时间窗）；本模块选择同步落盘换取可追溯性\"}"
   },
   {
    "round": 12,
    "name": "concurrent_write",
    "ok": true,
-   "detail": "{\"no_errors\": true, \"all_rows\": true, \"chain_ok\": true, \"ops_per_s\": 658.4, \"errors\": []}"
+   "detail": "{\"no_errors\": true, \"all_rows\": true, \"chain_ok\": true, \"ops_per_s\": 902.7, \"errors\": []}"
   },
   {
    "round": 13,
@@ -86,7 +86,7 @@
    "round": 14,
    "name": "deep_paging",
    "ok": true,
-   "detail": "{\"first_s\": 0.0084, \"deep_s\": 0.0094, \"ratio\": 1.1, \"N\": 2000}"
+   "detail": "{\"first_s\": 0.0114, \"deep_s\": 0.011, \"ratio\": 1.0, \"N\": 2000}"
   },
   {
    "round": 15,

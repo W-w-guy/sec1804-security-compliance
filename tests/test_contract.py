@@ -54,5 +54,8 @@ def test_openapi_is_generated_without_error(c):
     spec = TestClient(create_app(c)).get("/openapi.json")
     assert spec.status_code == 200
     data = spec.json()
-    assert data["info"]["version"] == "0.1.0"
+    # 版本号的唯一来源是 app/__init__.py 的 __version__，测试里不许再抄一遍字面量
+    # （抄了就会出现「改版本要改两处」，H11 正是在查这个）
+    from app import __version__ as _v
+    assert data["info"]["version"] == _v
     assert len(data["paths"]) >= 20

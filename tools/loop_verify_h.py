@@ -8,7 +8,7 @@ H1  zip 完整性：条目齐全、无 __pycache__/.venv/密钥/数据库残留
 H2  无绝对路径泄漏（不能写死 E:\ 或 /home/xxx）
 H3  干净解压 + 一条命令跑测（不预装任何东西，只用 requirements）
 H4  一键演示 demo 的输出可读且结论明确
-H5  verify.py 五步全绿且记录落盘
+H5  verify.py 六步全绿且记录落盘
 H6  docker compose 配置合法（compose config / 依赖顺序 / healthcheck）
 H7  Dockerfile 可构建的静态检查 + .dockerignore 生效
 H8  README 与仓库实际一致（提到的命令/文件都必须真的存在）
@@ -255,7 +255,14 @@ def h5(rng):
     passed = out.count("[PASS]")
     failed = out.count("[FAIL]")
     rec = os.path.join(d, "reports", f"verify_{platform.system().lower()}.json")
-    checks = {"rc_zero": p.returncode == 0, "five_steps": passed >= 5, "no_fail": failed == 0,
+    # ★ 2026-11-06：verify.py 从五步变六步（许可证 + 漏洞两个子项分开）。
+    #   这里原来写死 >=5，六步时仍"通过"，但五步被误删一步也不会红 —— 改成按 verify.py
+    #   里 steps 的长度动态比对，多一步少一步都能抓到。
+    expected = len(re.findall(r"step_\w+\(\)", open(
+        os.path.join(d, "tools", "verify.py"), encoding="utf-8").read().split("def main()")[-1]
+        .split("steps = [")[1].split("]")[0]))
+    checks = {"rc_zero": p.returncode == 0, "steps_all_passed": passed == expected,
+              "expected_steps": expected, "no_fail": failed == 0,
               "record_written": os.path.exists(rec),
               "result_line": "ALL PASS" in out}
     return all(checks.values()), json.dumps({**checks, "passed": passed, "failed": failed})
@@ -364,17 +371,42 @@ def h8(rng):
     cmd_missing = sorted(c for c in cmds if not os.path.exists(os.path.join(d, c)))
 
     # 4) README 里关于规模/数量的硬声明不得过期（最容易烂的地方）
+    #
+    # ★ 2026-11-06 改：原来这里是 `"90 passed" in readme` —— 硬编码一个数字。
+    #   我加了 tests/test_deps.py 之后 README 变成 95 passed，这条检查就假红；
+    #   反过来，如果谁把 README 写成 95 而实际只有 90 条用例，硬编码也查不出来。
+    #   现在改成【跑一遍收集，拿真实用例数去比对 README 里声明的那个数】。
+    import re as _re
+    import subprocess as _sp
+    n_collected = 0
+    try:
+        env = dict(os.environ, PYTEST_DISABLE_PLUGIN_AUTOLOAD="1", PYTHONIOENCODING="utf-8")
+        out = _sp.run([sys.executable, "-m", "pytest", "tests", "--collect-only", "-q",
+                       "-p", "no:cacheprovider"], cwd=d, capture_output=True, text=True,
+                      encoding="utf-8", errors="replace", env=env, timeout=300).stdout
+        # pytest 9 的 `--collect-only -q` 输出的是「文件: 条数」汇总行，不再逐条列 `::`，
+        # 早先按 "::" 计数会得到 0（H8 就是这么假红的）。两种格式都兼容。
+        per_file = [int(m.group(1)) for m in
+                    re.finditer(r"^\S+\.py:\s*(\d+)\s*$", out, re.M)]
+        n_collected = sum(per_file) if per_file else len(
+            [ln for ln in out.splitlines() if "::" in ln])
+    except Exception:                                     # noqa: BLE001
+        n_collected = 0
+    claimed = sorted({int(x) for x in _re.findall(r"(\d+)\s*passed", readme)})
     checks = {
         "paths_exist": not missing,
         "cmds_exist": not cmd_missing,
-        "claims_90_tests": "90 passed" in readme,
+        "n_collected": n_collected,
+        "claimed_passed": claimed,
+        # 真实用例数必须出现在 README 的 "N passed" 声明里
+        "claims_match_collected": n_collected > 0 and n_collected in claimed,
         "claims_rounds_105": "105" in readme or "八组" in readme,
         "missing": missing[:6],
         "cmd_missing": cmd_missing[:4],
         "checked_paths": len(explicit | set(tree_names)),
     }
     return all([checks["paths_exist"], checks["cmds_exist"],
-                checks["claims_90_tests"], checks["claims_rounds_105"]]), \
+                checks["claims_match_collected"], checks["claims_rounds_105"]]), \
         json.dumps(checks, ensure_ascii=False)
 
 

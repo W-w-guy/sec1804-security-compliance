@@ -8,7 +8,7 @@
    "round": 1,
    "name": "zip_integrity",
    "ok": true,
-   "detail": "{\"mode\": \"zip\", \"no_corrupt\": true, \"no_missing_core\": true, \"no_junk\": true, \"no_secrets\": true, \"entries\": 83, \"junk\": [], \"missing\": [], \"matches_git_head\": false, \"head_note\": \"rev=7bcb7011 head=76 zip=76 only_head=[] only_zip=[] diff=['.dockerignore', '.gitignore', 'CHANGELOG.md']\"}"
+   "detail": "{\"mode\": \"zip\", \"no_corrupt\": true, \"no_missing_core\": true, \"no_junk\": true, \"no_secrets\": true, \"entries\": 83, \"junk\": [], \"missing\": [], \"matches_git_head\": true, \"head_note\": \"rev=c2a80d19 head=76 zip=76\"}"
   },
   {
    "round": 2,
@@ -32,7 +32,7 @@
    "round": 5,
    "name": "verify_five_steps",
    "ok": true,
-   "detail": "{\"rc_zero\": true, \"five_steps\": true, \"no_fail\": true, \"record_written\": true, \"result_line\": true, \"passed\": 5, \"failed\": 0}"
+   "detail": "{\"rc_zero\": true, \"steps_all_passed\": true, \"expected_steps\": 5, \"no_fail\": true, \"record_written\": true, \"result_line\": true, \"passed\": 5, \"failed\": 0}"
   },
   {
    "round": 6,
@@ -49,8 +49,8 @@
   {
    "round": 8,
    "name": "readme_consistency",
-   "ok": true,
-   "detail": "{\"paths_exist\": true, \"cmds_exist\": true, \"claims_90_tests\": true, \"claims_rounds_105\": true, \"missing\": [], \"cmd_missing\": [], \"checked_paths\": 13}"
+   "ok": false,
+   "detail": "{\"paths_exist\": true, \"cmds_exist\": true, \"n_collected\": 91, \"claimed_passed\": [77, 90], \"claims_match_collected\": false, \"claims_rounds_105\": true, \"missing\": [], \"cmd_missing\": [], \"checked_paths\": 13}"
   },
   {
    "round": 9,
@@ -95,7 +95,7 @@
    "detail": "{\"missing\": [], \"total\": 13}"
   }
  ],
- "passed": 15,
- "failed": 0,
+ "passed": 14,
+ "failed": 1,
  "skipped": []
 }

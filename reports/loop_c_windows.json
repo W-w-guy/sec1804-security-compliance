@@ -62,7 +62,7 @@
    "round": 10,
    "name": "malformed_input",
    "ok": true,
-   "detail": "{\"1mb_body_handled\": true, \"deep_json_handled\": true, \"type_err_3518\": true, \"type_err_7466\": true, \"type_err_2538\": true, \"type_err_2894\": true, \"nan_handled\": true, \"missing_value_422\": true, \"wrong_content_type_handled\": true}"
+   "detail": "{\"1mb_body_handled\": true, \"deep_json_handled\": true, \"type_err_9962\": true, \"type_err_7206\": true, \"type_err_502\": true, \"type_err_7973\": true, \"nan_handled\": true, \"missing_value_422\": true, \"wrong_content_type_handled\": true}"
   },
   {
    "round": 11,
@@ -74,7 +74,7 @@
    "round": 12,
    "name": "bruteforce_rate",
    "ok": true,
-   "detail": "{\"no_success_in_bruteforce\": true, \"denied_attempts_audited\": true, \"no_2xx_in_bruteforce\": true, \"rate_limited\": true, \"ratelimit_is_audited\": true, \"requests\": 60, \"seconds\": 0.42}"
+   "detail": "{\"no_success_in_bruteforce\": true, \"denied_attempts_audited\": true, \"no_2xx_in_bruteforce\": true, \"rate_limited\": true, \"ratelimit_is_audited\": true, \"requests\": 60, \"seconds\": 0.54}"
   },
   {
    "round": 13,
@@ -86,7 +86,7 @@
    "round": 14,
    "name": "deps_license",
    "ok": true,
-   "detail": "{\"no_denied_license\": true, \"no_unknown_license\": true, \"deps_scanned\": true, \"pinned_versions\": true, \"deps\": 22, \"note\": \"CVE 需要联网查询（osv.dev / GitHub Advisory）；本机离线，未做 CVE 比对，如实标注\"}"
+   "detail": "{\"no_denied_license\": true, \"no_unknown_license\": true, \"deps_scanned\": true, \"pinned_versions\": true, \"deps\": 36, \"note\": \"CVE 需要联网查询（osv.dev / GitHub Advisory）；本机离线，未做 CVE 比对，如实标注\"}"
   },
   {
    "round": 15,

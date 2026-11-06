@@ -10,43 +10,59 @@
 | A03 | 注入 | 所有 SQL 走参数化（sqlite `?` / PG `%s`，无字符串拼接用户输入）；无 shell 调用 | `app/storage/db.py` 全部 `execute(sql, params)`；`grep` 无 f-string 拼接 WHERE | 已控制 |
 | A04 | 不安全设计 | 默认拒绝；审批与理由强制；脱敏先于一切外发；保留期默认最短 | `errors.py` 401/403 默认拒绝；`reason_min_len`；`RETAIN_*` 默认 90/30/24 | 已控制 |
 | A05 | 安全配置错误 | CORS 未开启、无默认口令、容器非 root（uid 10001）、健康检查 | `Dockerfile` `USER appuser`；`JWT_SECRET` 必须由环境注入 | 已控制（部署需改 JWT_SECRET） |
-| A06 | 易受攻击/过时组件 | 依赖闭包扫描 + 许可白名单；非白名单许可直接判失败 | `tools/dep_scan.py`、`reports/dep_scan.json`（**22 个依赖，0 deny，0 unknown**） | 已控制 |
+| A06 | 易受攻击/过时组件 | **两件事分开做**：许可白名单（`dep_scan.py`）+ CVE/GHSA 漏洞扫描（`cve_scan.py`，查 OSV.dev）。版本由 `requirements.lock` 单一事实源锁定，扫描对象 = 交付物实际安装的版本 | `reports/dep_scan.json`（36 个依赖，0 deny / 0 unknown / 0 版本漂移）、`reports/cve_scan.json`（36 个依赖，**0 条未处理，0 条 HIGH/CRITICAL**）、`tests/test_deps.py` 5 项不变量守护 | 已控制 |
 | A07 | 身份认证失效 | HS256 JWT（stdlib hmac，常量时间比较）、exp 校验、角色枚举校验 | `app/auth.py` `hmac.compare_digest`；`test_role_missing_permission` | 已控制 |
 | A08 | 数据完整性失效 | 审计哈希链只追加；篡改可逐行定位；告警本身入链 | `tests/test_audit.py` 7 项 | 已控制 |
 | A09 | 日志与监控失效 | 查看/导出/配置变更全量入审计；单人短时大量查看/导出触发告警 | `test_bulk_view_triggers_alert`、`test_export_threshold_alert` | 已控制 |
 | A10 | SSRF | 本模块不发起任何外部 HTTP；KMS Vault 后端地址来自环境变量白名单式配置 | `grep -r "urlopen\|requests\." app/` 仅 `VaultKMS` 一处且地址可配 | 已控制（接入外部模型时由任务 1/3 负责） |
 
-## 依赖与许可（A06 明细）
+## 依赖：许可与漏洞（A06 明细）
 
-扫描范围：`requirements.txt` 依赖闭包（非整机环境），共 **22** 个。
+扫描对象是 **`requirements.lock` 全闭包 36 个包**——即交付物 `pip install` 后实际安装的那组版本。
+锁文件由干净 venv 里 `pip freeze` 生成，`90+5` 项单测就是在这组版本上跑通的。
+
+### 1) 许可证（`tools/dep_scan.py` -> `reports/dep_scan.json`）
 
 ```
 $ python tools/dep_scan.py
-scope=requirements.txt 依赖闭包 deps=22 denied=0 unknown=0 ok=True
+scope=requirements.lock 全闭包（交付物实际安装的版本） deps=36 denied=0 unknown=0 lock_mismatch=0 ok=True
 ```
 
-许可分布（全部落在契约白名单内）：
-MIT（fastapi / pydantic / pydantic-core / starlette 用 BSD / anyio / sniffio / sniffio /
-click 用 BSD / h11 / typing-extensions 用 PSF / scramp / asn1crypto / six）、
-Apache-2.0（cryptography 双许可 / opentelemetry-api / python-dateutil 双许可）、
-BSD-3-Clause（uvicorn / starlette / click / idna / pycparser / pg8000 / httpcore / httpx / pytest）、
-PSF-2.0（typing-extensions）、MPL-2.0（certifi，未在本闭包）。**无 GPL / AGPL / LGPL / SSPL。**
+全部落在契约白名单内：MIT / Apache-2.0 / BSD-2-Clause / BSD-3-Clause / PSF-2.0 / MPL-2.0（certifi，仅 httpx 测试依赖）。
+**无 GPL / AGPL / LGPL / SSPL。**
 
-**过程中修掉的一个真实问题**：初版用 `psycopg[binary]` 连 PostgreSQL，其许可为
-**LGPL-3.0**，不在契约允许的 MIT / Apache-2.0 / BSD / PostgreSQL 之列。已换成
-`pg8000`（BSD-3），`app/storage/db.py` 的 PG 分支随之改为 DB-API 调用（`%s` 占位符、
-`cursor.description` 取列名）。同时删掉了从未使用的 `redis` 客户端依赖（Redis 7.2
-仍由 compose 提供，供平台其它任务使用；本模块不需要客户端即可满足验收）。
+过程中修掉的一个真实问题：初版用 `psycopg[binary]` 连 PostgreSQL，其许可为 **LGPL-3.0**，
+不在契约允许范围内。已换成 `pg8000`（BSD-3）。
 
-换库连带踩的两个坑（都只在真连 PostgreSQL 时暴露，Windows 上无 PG 永远看不到）：
+### 2) 漏洞（`tools/cve_scan.py` -> `reports/cve_scan.json`，数据源 OSV.dev）
 
-1. `pg8000.dbapi.connect(dsn=...)` → `TypeError: connect() got an unexpected keyword
-   argument 'dsn'`。pg8000 没有 dsn 参数，必须自己 `urlparse` 拆成
-   user/password/host/port/database 逐项传。已封装 `_pg_connect()`。
-2. `sqlite3.Connection` 有 `execute()`，`pg8000` 的 `Connection` **没有**，必须
-   `cursor().execute()`。容器第一次起 api 就直接
-   `AttributeError: 'Connection' object has no attribute 'execute'` 退出。
-   已改 `DB._exec()` 按方言分流。
+```
+$ python tools/cve_scan.py
+packages=36 with_vulns=0 unhandled=0 ok=True
+```
+
+**这一项是 2026-11-06 补的，补的过程本身就是一个应该被记录的缺陷。**
+
+初版只做了许可扫描，却把 OWASP A06 写成「已控制」，标书里也只能写「CVE 比对未做」——
+而验收点 7 要求的是「依赖扫描 … **无未处理的高危项**」。按 OSV 对当时钉住的版本实测：
+
+| 依赖 | 当时钉的版本 | 公告 | 等级 | 修复版本 |
+|---|---|---|---|---|
+| `pg8000` | 1.31.2 | GHSA-wq2g-r956-j8cc（SQL 注入） | **HIGH** | 1.31.5 |
+| `cryptography` | 44.0.0 | 6 条（OpenSSL / PKCS#7 / 子群攻击） | **4×HIGH** | 48.0.1 ~ 50.0.0 |
+| `fastapi` -> `starlette` | 0.115.6 -> 0.41.3 | 11 条 | 含 HIGH | 随 fastapi 升级 |
+
+**为什么一直没发现**：单测跑的是本机后来装的 `cryptography 50.0.2 / pg8000 1.31.6`，
+而 `requirements.txt` 钉的是有漏洞的旧版——「测试全绿」和「交付物有 HIGH」同时成立。
+
+现在的做法（三道机器可检查的不变量，见 `tests/test_deps.py`）：
+
+1. `requirements.txt` / `requirements-dev.txt` 里每一个钉住的版本，必须在 `requirements.lock` 里逐字一致；
+2. 已提交的 `reports/cve_scan.json` 的版本快照必须等于当前 `requirements.lock`（报告不能过期）；
+3. 报告里不许有 `HIGH` / `CRITICAL` 未处理项；有 CRITICAL 的必须有修复版本。
+
+`tools/verify.py` 的 `cve_scan` 步与 `license_scan` 步分别对应这两件事，任一不过即 `RESULT: FAILED`。
+`cve_scan.py --offline` 不联网，只复核已提交报告与 lock 是否一致——验收人没有外网也能验真。
 
 ## 渗透自测要点（自测，非第三方）
 

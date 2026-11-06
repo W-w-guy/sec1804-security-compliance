@@ -10,7 +10,7 @@
     唯一稳妥做法是关掉插件自动加载（本项目不需要任何第三方 pytest 插件）。
 
 用法：
-    python tools/run_tests.py                # 77 passed
+    python tools/run_tests.py                # 95 passed
     python tools/run_tests.py -k vault -v    # 透传 pytest 参数
 """
 from __future__ import annotations

@@ -1,4 +1,4 @@
-"""一键验收：单测 + 脱敏召回 + 审计篡改定位 + 端到端演示 + 许可扫描，输出可复跑记录。
+"""一键验收：单测 + 脱敏召回 + 审计篡改定位 + 端到端演示 + 许可扫描 + 漏洞扫描，输出可复跑记录。
 
 用法：
     python tools/verify.py             # 人读摘要（任一失败即非 0 退出）
@@ -152,6 +152,26 @@ def step_license() -> dict:
 
 
 
+def step_cve() -> dict:
+    """依赖漏洞扫描（验收点 7 的「无未处理高危项」）。
+
+    ★ 这一项 2026-11-06 才补上。此前 verify 只有「许可扫描」，而验收点 7 要的是
+      「依赖扫描 … 无未处理的高危项」——许可 MIT/BSD 与 CVE 是两件事。补上后实测：
+      原钉的 cryptography==44.0.0 / pg8000==1.31.2 各有 HIGH（pg8000 是 SQL 注入），
+      并且 90 项单测跑在本机后来装的修复版上，所以长期没人发现。
+    """
+    rc, out = run([sys.executable, "tools/cve_scan.py", "--offline"])
+    detail = {"tail": [ln for ln in out.strip().splitlines() if ln.strip()][-6:]}
+    try:
+        rep = json.load(open(os.path.join(HERE, "reports", "cve_scan.json"), encoding="utf-8"))
+        detail.update({"packages": rep.get("packages"), "with_vulns": rep.get("with_vulns"),
+                       "unhandled": rep.get("unhandled"), "ok": rep.get("ok")})
+    except Exception as e:                                   # noqa: BLE001
+        detail["parse_error"] = repr(e)
+    return {"name": "cve_scan", "ok": rc == 0, "detail": detail,
+            "cmd": "python tools/cve_scan.py [--offline]"}
+
+
 def _safe_write_report(path: str, obj) -> str:
     """写记录文件失败（只读挂载 / 权限不足）只警告，**不影响结论与退出码**。
 
@@ -169,7 +189,7 @@ def _safe_write_report(path: str, obj) -> str:
         return f"failed:{type(e).__name__}"
 
 def main() -> int:
-    steps = [step_tests(), step_masking(), step_audit(), step_demo(), step_license()]
+    steps = [step_tests(), step_masking(), step_audit(), step_demo(), step_license(), step_cve()]
     ok = all(s["ok"] for s in steps)
     record = {
         "platform": {"system": platform.system(), "release": platform.release(),
