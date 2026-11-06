@@ -81,6 +81,33 @@ def _zip_matches_head(zip_path: str) -> tuple[bool | None, str]:
         note += f" only_head={only_head[:3]} only_zip={only_zip[:3]} diff={diff[:3]}"
     return ok, note
 
+ARTIFACT: dict = {"zip": None, "dir": None}
+
+
+def _consume_args() -> None:
+    """显式解析本脚本的参数。
+
+    ★ 2026-11-06 加：原先本脚本完全不读 sys.argv，`--zip xxx` 被静默忽略，
+      于是它退回默认搜索顺序，可能在 ~/ 里命中一个**旧 zip**，把别的包体验成 PASS。
+      现在 --zip/--dir 显式生效，且未知参数直接失败（见 tools/argv_guard.py）。
+    """
+    import argparse
+    ap = argparse.ArgumentParser(description="H 组：交付形态 15 轮")
+    ap.add_argument("--zip", help="要检验的交付 zip（不传则按默认顺序自动找）")
+    ap.add_argument("--dir", help="要检验的目录（已解压的交付物）")
+    a = ap.parse_args()
+    if a.zip and a.dir:
+        ap.error("--zip 与 --dir 只能给一个")
+    if a.zip:
+        if not os.path.exists(a.zip):
+            ap.error(f"--zip 指定的文件不存在：{a.zip}")
+        ARTIFACT["zip"] = os.path.abspath(a.zip)
+    if a.dir:
+        if not os.path.exists(os.path.join(a.dir, "README.md")):
+            ap.error(f"--dir 不像交付物（缺 README.md）：{a.dir}")
+        ARTIFACT["dir"] = os.path.abspath(a.dir)
+
+
 def source_dir() -> tuple[str, str | None]:
     """确定要检验的交付物在哪。
 
@@ -89,7 +116,9 @@ def source_dir() -> tuple[str, str | None]:
       B) 没有 zip，但当前目录本身就是一份完整交付物（git clone 出来的）
          → 直接检当前目录，只跳过 zip 专属项。
     """
-    zp = find_zip()
+    if ARTIFACT["dir"]:
+        return ARTIFACT["dir"], None
+    zp = ARTIFACT["zip"] or find_zip()
     if zp:
         tmp = tempfile.mkdtemp(prefix="h-group-")
         with zipfile.ZipFile(zp) as z:
@@ -392,21 +421,32 @@ def h8(rng):
             [ln for ln in out.splitlines() if "::" in ln])
     except Exception:                                     # noqa: BLE001
         n_collected = 0
-    claimed = sorted({int(x) for x in _re.findall(r"(\d+)\s*passed", readme)})
+    # ★ 2026-11-06 改：原来把 README 里**所有** "N passed" 都当当前声明。
+    #   README 里确实留着历史数字（"77 → 90 → 95" 和当轮记录），于是这条永远假红。
+    #   现在只要求：当前数（= 实际收集数）必须在 README 里被声明；其它历史数字
+    #   只有在同一行标明了是历史（当轮记录 / → / 用例数变化）时才放过。
+    hist_marks = ("当轮", "→", "历史", "用例数变化", "record")
+    claimed_cur, claimed_hist = [], []
+    for ln in readme.splitlines():
+        for num in _re.findall(r"(\d+)\s*passed", ln):
+            n = int(num)
+            (claimed_hist if any(m in ln for m in hist_marks) else claimed_cur).append(n)
     checks = {
         "paths_exist": not missing,
         "cmds_exist": not cmd_missing,
         "n_collected": n_collected,
-        "claimed_passed": claimed,
-        # 真实用例数必须出现在 README 的 "N passed" 声明里
-        "claims_match_collected": n_collected > 0 and n_collected in claimed,
+        "claimed_current": sorted(set(claimed_cur)),
+        "claimed_history": sorted(set(claimed_hist)),
+        "claims_match_collected": n_collected > 0 and n_collected in claimed_cur,
+        "stale_current_claims": sorted({n for n in claimed_cur if n != n_collected}),
         "claims_rounds_105": "105" in readme or "八组" in readme,
         "missing": missing[:6],
         "cmd_missing": cmd_missing[:4],
         "checked_paths": len(explicit | set(tree_names)),
     }
     return all([checks["paths_exist"], checks["cmds_exist"],
-                checks["claims_match_collected"], checks["claims_rounds_105"]]), \
+                checks["claims_match_collected"], not checks["stale_current_claims"],
+                checks["claims_rounds_105"]]), \
         json.dumps(checks, ensure_ascii=False)
 
 
@@ -612,6 +652,10 @@ def _safe_write_report(path: str, obj) -> str:
         return f"failed:{type(e).__name__}"
 
 def main() -> int:
+    _consume_args()
+    _d, _zp = source_dir()
+    print(f"[artifact] {'zip=' + _zp if _zp else 'dir=' + _d}"
+          "（以下全部检查都针对这一个交付物）")
     seed = int(os.environ.get("LOOP_SEED", "20261110"))
     recs, skipped = [], []
     for idx, name, fn in ROUNDS:

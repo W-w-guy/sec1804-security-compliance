@@ -119,13 +119,13 @@
       3
      ],
      "missing_seq": [],
-     "tip": "cd6b9c47c590212254ee2df6fadb965514c601d98a797e1651790c5c17c596ce"
+     "tip": "49e88737ab1da66d2d2e99f2270c9050806aebf45fe3ae4da9e5c00a7cacb6dc"
     },
     "4_locate_seq3": [
      {
       "field": "content_or_hash",
-      "stored_hash": "133785ef0012b82fdf408482b24e6c60e8e8cc11f92e0fc24cc8983e5b7c60f3",
-      "recomputed": "c6fd537e75c86e166bb6662585a4e6196de90b10b98e48147d0dd84f8fbbcebd"
+      "stored_hash": "17577b318d504cb7122b62afb528f25cbb776b97c299563cba2ed3892053cc39",
+      "recomputed": "1e7777ce4ac953d2afdd18d607f1f620c376f64a298de9edf23b50bdc81a5b0d"
      }
     ],
     "5_retention_report": {

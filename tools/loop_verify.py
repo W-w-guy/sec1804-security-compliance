@@ -20,8 +20,10 @@ import subprocess
 import sys
 import tempfile
 
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
+from tools.argv_guard import reject_unknown  # noqa: E402
 ENV = dict(os.environ, PYTHONIOENCODING="utf-8", PYTHONUTF8="1",
            PYTEST_DISABLE_PLUGIN_AUTOLOAD="1")   # 见 tools/verify.py 注释：隔离宿主 pytest 插件
 from app.config import Settings                      # noqa: E402
@@ -285,6 +287,7 @@ def _safe_write_report(path: str, obj) -> str:
         return f"failed:{type(e).__name__}"
 
 def main() -> int:
+    reject_unknown("loop_verify.py", allowed=())
     import platform
     seed = int(os.environ.get("LOOP_SEED", "20261103"))
     recs = []

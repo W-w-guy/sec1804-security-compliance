@@ -27,6 +27,17 @@ v0.1.1 把 `lock_mismatch` 做成了硬失败，本意是防「报告扫的是�
   许可表兜底，兜不底记 `unknown` 判失败；报告因此对 lock 全量 36 个包逐一有结论。
 - 所有写报告的地方显式 `newline="\n"`：Windows 与 Linux 生成的 `reports/*.json` 现在逐字节一致，
   「复跑同结论」不再受 git 换行归一化影响。
+- **新增 `tools/argv_guard.py`：验收脚本不再静默忽略参数。** 起因是实测踩到：
+  `loop_verify_h.py --zip ~/ship_x.zip` 当时根本不支持 `--zip`，也不读 `sys.argv`，
+  于是它退回去在 `~/` 里命中了一个**旧的** `sec1804_sec5.zip`，把另一份包体验成 PASS。
+  验收工具最危险的失败不是报错，是「验错了东西还打勾」。现在 8 个 `loop_verify*.py`
+  遇到不认识的参数一律非 0 退出并回显命令行。
+- `loop_verify_h.py`：真正支持 `--zip <包>` / `--dir <目录>`，启动时打印
+  `[artifact] zip=... `，声明后续检查只针对这一个交付物；`--zip` 指向不存在的文件直接报错。
+- `loop_verify_h.py::h8`：README 数字一致性改口径 —— 只要求「当前用例数」被声明，
+  README 里标注为历史（当轮记录 / 77 → 90 → 95）的数字不再判红；同时新增
+  `stale_current_claims`：未标历史却写着旧数字的，仍然判失败。
+- `app/__init__.py` / README 的版本号与 CHANGELOG 对齐到 `0.1.2`（此前代码还停在 0.1.1）。
 - `tests/test_deps.py::test_license_scan_matches_lock`：断言收紧为「rows 必须覆盖 lock 全量」，
   并做过变异测试验证它真的会红（见下）。
 

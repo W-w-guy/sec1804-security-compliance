@@ -233,7 +233,7 @@ $ docker compose up -d --build
  Container sec1804-cache-1  Healthy
  Container sec1804-api-1    Started
 $ curl -s localhost:18081/health
-{"status":"ok","module":"task-5-security-compliance","version":"0.1.1"}
+{"status":"ok","module":"task-5-security-compliance","version":"0.1.2"}
 $ curl -s localhost:18081/openapi.json | jq '.paths|length'
 27
 $ curl -s -XPOST localhost:18081/api/v1/vault/tokenize -H "Authorization: Bearer $TOK" \

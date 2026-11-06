@@ -37,8 +37,10 @@ import time
 import uuid
 import datetime as dt
 
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
+from tools.argv_guard import reject_unknown  # noqa: E402
 ENV = dict(os.environ, PYTHONIOENCODING="utf-8", PYTHONUTF8="1",
            PYTEST_DISABLE_PLUGIN_AUTOLOAD="1")
 
@@ -507,6 +509,7 @@ def _safe_write_report(path: str, obj) -> str:
         return f"failed:{type(e).__name__}"
 
 def main() -> int:
+    reject_unknown("loop_verify_f.py", allowed=())
     seed = int(os.environ.get("LOOP_SEED", "20261108"))
     recs, skipped = [], []
     for idx, name, fn in ROUNDS:
