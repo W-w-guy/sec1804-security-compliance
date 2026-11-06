@@ -47,3 +47,28 @@ def test_recall_meets_contract(rep):
     assert pt["身份证号"]["recall"] >= 1.0
     assert pt["姓名"]["recall"] >= 0.95
     assert pt["地址"]["recall"] >= 0.95
+
+
+def test_no_partial_masking_leftover():
+    """掩码之后必须扫不出同类型 PII（半截掩码是比漏检更危险的一类）。
+
+    ★ 2026-11-06 补：一次对抗检查抓到这个：
+        「我住西湖区文三路90号东部软件园3号楼」
+      → 掩成「我住〔地址_1〕东部软件园3号楼」，楼宇名+楼号原样留在明文里。
+      两个地址正则各认一半、互不覆盖，而占位符的存在会让审阅者以为这行已处理。
+      修法：相邻片段合并 + 地址尾部续接楼宇名门牌。本测试守着"掩完再扫必须干净"。
+    """
+    import csv
+    import json
+    from app.masking import MaskingSession, mask_text
+
+    bad = []
+    for fn in ("samples_200.csv", "holdout_adversarial.csv", "probe_20261106.csv"):
+        path = os.path.join(ROOT, "data", fn)
+        for row in csv.DictReader(open(path, encoding="utf-8")):
+            masked = mask_text(row["text"])["masked"]
+            left = MaskingSession().detect(masked)
+            if left:
+                bad.append({"id": row["id"], "masked": masked,
+                            "leftover": [(s["type"], s["text"]) for s in left]})
+    assert not bad, f"掩码后仍能扫出 PII（半截掩码）：{json.dumps(bad[:5], ensure_ascii=False)}"

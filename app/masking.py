@@ -79,6 +79,13 @@ ADDR_COMMUNITY = re.compile(
     r"(?:\s*\d{1,4}\s*(?:层|楼))?(?:\s*\d{1,4}\s*(?:室|号房))?"
     # ★ 2026-11-06：楼栋码 + 房号可能连续出现两次（"T1 2201"），只留一组会把 2201 漏在明文里
     r"(?:\s*[A-Za-z]?\s*\d{1,4}(?!\d)){0,2}")
+# 地址尾部续接：楼宇名 + 门牌（"…张江路100号汤臣一品8栋" / "…建国路88号SOHO现代城A座1201"）。
+# ★ 2026-11-06 补：主地址正则只认"路名+门牌"那一段，后面的楼宇名+房号会被漏在明文里。
+#   这条只在"紧跟地址、且后面确实带数字门牌"时才生效，避免把普通句子吞进地址。
+ADDR_TAIL = re.compile(
+    r"^\s*(?:[\u4e00-\u9fa5A-Za-z]{2,10})"
+    r"(?:广场|城|苑|府|湾|里|中心|大厦|小区|花园|公寓|园区|新村|现代城)?"
+    r"\s*[A-Za-z]?\s*\d{1,5}\s*(?:室|栋|幢|座|号楼|单元|层|楼)?")
 ADDR_HEAD = re.compile(r"^(?:我住|我在|现住|住在|位于|地址是|地址：|地址:|地址|住|在)+")
 
 CARD_CTX = re.compile(r"(?:卡|卡号|账号|账户|开户|打款|工资卡)")
@@ -286,7 +293,38 @@ class MaskingSession:
                     frag = frag[head.end():]
                 frag2, s2 = self._trim_tail_digits(text, s, e)
                 out.append({"type": "地址", "start": s2[0], "end": s2[1], "text": frag2})
-        return out
+        # 先续接"楼宇名+门牌"，再合并相邻片段（顺序不能反：续接要基于原始匹配区间）
+        for sp in out:
+            m2 = ADDR_TAIL.match(text[sp["end"]:])
+            if m2:
+                sp["end"] += m2.end()
+                sp["text"] = text[sp["start"]:sp["end"]]
+        return self._merge_adjacent(text, out)
+
+    @staticmethod
+    def _merge_adjacent(text: str, spans: list[dict]) -> list[dict]:
+        """把相邻/重叠的同类片段合并成一段。
+
+        ★ 2026-11-06 补（第 4 号缺陷的同类）：一次"掩码后再扫一遍"的对抗检查抓到这个：
+            「我住西湖区文三路90号东部软件园3号楼」
+          → 掩成「我住〔地址_1〕东部软件园3号楼」，后半截楼宇名+楼号完好留在明文里。
+          两个正则（路名式 ADDR / 楼宇式 ADDR_COMMUNITY）各自只认自己那半，谁也不覆盖对方。
+          **半截掩码比完全不掩更危险**：审阅者看到有〔地址_1〕就以为这行已经处理过了。
+          对策：同类片段只要区间相邻（中间不隔字符）或重叠，就并成一段再整体掩掉。
+        """
+        if not spans:
+            return spans
+        spans = sorted(spans, key=lambda s: (s["start"], -s["end"]))
+        merged: list[dict] = []
+        for sp in spans:
+            if merged and sp["start"] <= merged[-1]["end"]:
+                last = merged[-1]
+                if sp["end"] > last["end"]:
+                    last["end"] = sp["end"]
+                    last["text"] = text[last["start"]:last["end"]]
+            else:
+                merged.append(dict(sp))
+        return merged
 
     @staticmethod
     def _trim_tail_digits(text: str, s: int, e: int):
