@@ -8,7 +8,7 @@
    "round": 1,
    "name": "zip_integrity",
    "ok": true,
-   "detail": "{\"mode\": \"zip\", \"no_corrupt\": true, \"no_missing_core\": true, \"no_junk\": true, \"no_secrets\": true, \"entries\": 91, \"junk\": [], \"missing\": [], \"matches_git_head\": true, \"head_note\": \"rev=3a1c27e9 head=84 zip=84\"}"
+   "detail": "{\"mode\": \"zip\", \"no_corrupt\": true, \"no_missing_core\": true, \"no_junk\": true, \"no_secrets\": true, \"entries\": 91, \"junk\": [], \"missing\": [], \"matches_git_head\": true, \"head_note\": \"rev=d0a52f4b head=84 zip=84\"}"
   },
   {
    "round": 2,
@@ -20,7 +20,7 @@
    "round": 3,
    "name": "clean_extract_tests",
    "ok": true,
-   "detail": "{\"rc_zero\": true, \"tests\": 98, \"failures\": 0, \"errors\": 0, \"all_green\": true}"
+   "detail": "{\"rc_zero\": true, \"tests\": 99, \"failures\": 0, \"errors\": 0, \"all_green\": true}"
   },
   {
    "round": 4,
@@ -50,7 +50,7 @@
    "round": 8,
    "name": "readme_consistency",
    "ok": true,
-   "detail": "{\"paths_exist\": true, \"cmds_exist\": true, \"n_collected\": 98, \"claimed_current\": [98], \"claimed_history\": [90, 98], \"claims_match_collected\": true, \"stale_current_claims\": [], \"claims_rounds_105\": true, \"missing\": [], \"cmd_missing\": [], \"checked_paths\": 22}"
+   "detail": "{\"paths_exist\": true, \"cmds_exist\": true, \"n_collected\": 99, \"claimed_current\": [99], \"claimed_history\": [90, 99], \"claims_match_collected\": true, \"stale_current_claims\": [], \"claims_rounds_105\": true, \"missing\": [], \"cmd_missing\": [], \"checked_paths\": 22}"
   },
   {
    "round": 9,
