@@ -6,7 +6,7 @@
   "python": "3.11.7"
  },
  "sha256": {
-  "app/masking.py": "5c36c7e8d5d0eb2688f7fdd13e8e80cfe3ad1419faccab18c7ea035cd1a2f1ed",
+  "app/masking.py": "b8d21e49c6488311dbe98b27ceed75f116fa398be928e438905dd58ad48b955d",
   "app/vault.py": "dbf630f9a625d7af5b4592b5f62a2fc2eaf7df41ab96ebd1b7afe0759d13a039",
   "app/audit.py": "3bc1755017dd5d2a29b85f4aa8cb4d18114df231e6e5ab6aa824f0127e82be2d",
   "app/retention.py": "f2db867214f0e3b5002b5d9cbfa3fa444e08182c57644273d1c4761880857ee4",
@@ -17,14 +17,14 @@
   {
    "name": "unit_tests",
    "ok": true,
-   "passed": 99,
+   "passed": 104,
    "failed": 0,
-   "collected": 99,
+   "collected": 104,
    "skipped": 0,
    "rc": 0,
    "cmd": "python tools/run_tests.py",
    "tail": [
-    "...........................                                              [100%]"
+    "................................                                         [100%]"
    ]
   },
   {
@@ -111,9 +111,36 @@
       "姓名": 0.0,
       "邮箱": 0.0
      }
+    },
+    "r1_20261106b.csv": {
+     "samples": 354,
+     "checks": {
+      "no_misses": true,
+      "phone_recall": true,
+      "idcard_recall": true,
+      "name_recall": true,
+      "addr_recall": true,
+      "fp_rate": true
+     },
+     "recall": {
+      "手机号": 1.0,
+      "身份证号": 1.0,
+      "银行卡号": 1.0,
+      "地址": 1.0,
+      "姓名": 1.0,
+      "邮箱": 1.0
+     },
+     "fp_rate": {
+      "手机号": 0.0,
+      "身份证号": 0.0,
+      "银行卡号": 0.0,
+      "地址": 0.0127,
+      "姓名": 0.0,
+      "邮箱": 0.0
+     }
     }
    },
-   "cmd": "python tools/eval_masking.py [samples_200.csv|holdout_adversarial.csv|probe_20261106.csv]"
+   "cmd": "python tools/eval_masking.py [samples_200.csv|holdout_adversarial.csv|probe_20261106.csv|r1_20261106b.csv]"
   },
   {
    "name": "audit_tamper_locate",
@@ -148,13 +175,13 @@
       3
      ],
      "missing_seq": [],
-     "tip": "e2ed435abf4a57ac94c79f731a63a4b90b9610b6f625869701e89d2c423e3ff2"
+     "tip": "568a9dc03ad78f2f5633c57f4c1011edd0e66b20d725335b42c2364ecba2a836"
     },
     "4_locate_seq3": [
      {
       "field": "content_or_hash",
-      "stored_hash": "930c904af7903ebdc3dd197fcd880f241d0cda1ed556c8e333aca1975eaa1cc0",
-      "recomputed": "ee6fc2db616fe3e7319c004224c0d22ad741a56f0c62aa3760a68da181042e56"
+      "stored_hash": "1888029a9185937511cd3dd0b76fe5df990e10a732b551afeb8c6accf77a042b",
+      "recomputed": "ae83abc95ddbf94ec07c7e8056d94a677c615f41198ac94538b6d49cc7fa3c49"
      }
     ],
     "5_retention_report": {

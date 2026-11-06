@@ -53,7 +53,37 @@ reports/
   verify_windows.json / verify_linux.json / dep_scan.json / cve_scan.json / OWASP_TOP10.md
 ```
 
-## 三套语料：为什么「100%」不可信，以及探针集抓出了什么
+## 四套语料：每套换一种**生成方法**（换字符串不算换轴）
+
+| 语料 | 条数 | 生成方法 | 首轮 | 现在 |
+|---|---|---|---|---|
+| `samples_200.csv` | 228 | 边写检测器边补 | 100% | 100% |
+| `holdout_adversarial.csv` | 38 | 写完检测器后再补 | 100% | 100% |
+| `probe_20261106.csv` | 25 | 换「买家/审阅者」身份另写 | **17/25** | 25/25 |
+| `r1_20261106b.csv` | **354** | **机械变异（枚举型）+ 反向构造负样本** | **miss 32 / fp 36** | **0 miss / 1 fp** |
+
+**合计 645 条，0 漏检**（剩 1 条误报见已知边界）。
+
+第 4 套为什么单独列：前 3 套都是我"想"出来的，盲区相同。第 4 套换了方法——
+
+- **变异组 330 条**：全角 / 零宽 / 空格 / 连字符 / 点 / 括号，对已有 PII 做**机械变换**。
+  这是可穷举的，不依赖灵感，所以能反复重造而不被我调参掉。
+- **负样本组 24 条**：**先规定「这 24 条全都不该识别」，再倒着写句子**。
+  此前 fp 长期恒为 0，那本身就是可疑信号；反向构造专门打误报。
+
+它抓到的 4 类缺陷里，第 1 类是真安全问题：
+
+```
+输入  我住在科技园路81<零宽>1号
+掩码  我住在〔地址_1〕        ← 修好了
+修前  我住在〔地址_1〕1号      ← 零宽把门牌撕成两段，后半截留在明文
+```
+
+还有一类更值得说：**评测脚本自己是错的**。`norm()` 不处理括号和 `+86` 前缀，
+于是 `+86 (138)0013-8000` 被判成一漏一误报，而检测器其实是对的。
+**比对口径一错，真缺陷就会被噪声淹掉**——这比修检测器更要紧。
+
+## 探针集抓出了什么：为什么「100%」不可信，以及探针集抓出了什么
 
 验收点 2 要的是「手机号与身份证号召回率 100%，姓名与地址 ≥95%，并写明误报率」。
 这里有一个必须自己先说破的问题：**在我自己设计的语料上拿 100% 和 0 误报，说明不了什么。**
@@ -180,7 +210,7 @@ scope=requirements.lock 全闭包（版本以 lock 为准） deps=36 denied=0 un
 3. 报告里不许留 `HIGH` / `CRITICAL`；有 CRITICAL 的必须有修复版本。
 
 并且 `requirements.lock` 是在**干净 venv** 里 `pip install` 后 `pip freeze` 出来的，
-99 项单测就是在这组版本上跑通的——「钉住的 = 验证过的 = 扫描过的」三者不再分叉。
+104 项单测就是在这组版本上跑通的——「钉住的 = 验证过的 = 扫描过的」三者不再分叉。
 
 ## 验证记录（命令、输入、期望输出；复跑同结论）
 
@@ -188,10 +218,10 @@ scope=requirements.lock 全闭包（版本以 lock 为准） deps=36 denied=0 un
 
 ```
 $ python tools/run_tests.py
-99 passed
+104 passed
 ```
-期望：`95 collected / 99 passed`，0 failed。复跑一致（无随机、无网络、无时钟依赖）。
-两平台实测：**Windows 11 / Python 3.11.7 → 99 passed**；**Ubuntu 24.04 / Python 3.12.3 → 99 passed**。
+期望：`104 collected / 104 passed`，0 failed。复跑一致（无随机、无网络、无时钟依赖）。
+两平台实测：**Windows 11 / Python 3.11.7 → 104 passed**；**Ubuntu 24.04 / Python 3.12.3 → 104 passed**。
 
 > 为什么要包装一层 `tools/run_tests.py` 而不是直接 `python -m pytest`：
 > 机器上若装了 ROS2，`/opt/ros/*/lib/python3.12/site-packages` 里的 `launch_testing`
@@ -292,7 +322,7 @@ $ docker compose up -d --build
  Container sec1804-cache-1  Healthy
  Container sec1804-api-1    Started
 $ curl -s localhost:18081/health
-{"status":"ok","module":"task-5-security-compliance","version":"0.1.3"}
+{"status":"ok","module":"task-5-security-compliance","version":"0.1.4"}
 $ curl -s localhost:18081/openapi.json | jq '.paths|length'
 27
 $ curl -s -XPOST localhost:18081/api/v1/vault/tokenize -H "Authorization: Bearer $TOK" \
@@ -448,7 +478,7 @@ D 组结果: 15/15 通过
 
 | 组 | 主题 | Windows | Ubuntu（容器，真 PG16 + 真 Vault 1.18） |
 |---|---|---|---|
-| 单测 | 功能 | **90 passed**（当轮记录；当前 99） | **90 passed**（当轮记录；当前 99） |
+| 单测 | 功能 | **90 passed**（当轮记录；当前 104） | **90 passed**（当轮记录；当前 104） |
 | verify | 一键验收 | ALL PASS | ALL PASS |
 | A（10 轮） | 功能面 | 10/10 | 10/10 |
 | B（10 轮） | 并发/跨方言/边界/KMS | 8 pass + 2 skip（无 PG/Vault，**不计为通过**） | 10/10 |
@@ -611,7 +641,7 @@ H 组结果: 15/15 通过
 
 | 组 | 主题 | Windows 11 / Py3.11.7 | Ubuntu 容器（真 PG16 + 真 Vault 1.18） |
 |---|---|---|---|
-| 单测 | 功能 | **90 passed**（当轮记录；当前 99） | **90 passed**（当轮记录；当前 99） |
+| 单测 | 功能 | **90 passed**（当轮记录；当前 104） | **90 passed**（当轮记录；当前 104） |
 | verify | 一键验收 | ALL PASS | ALL PASS |
 | A（10 轮） | 功能面 | 10/10 | 10/10 |
 | B（10 轮） | 并发/跨方言/边界/KMS | 8 pass + 2 skip（无 PG/Vault，**不计为通过**） | 10/10 |

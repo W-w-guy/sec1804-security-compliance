@@ -78,7 +78,11 @@ def step_masking() -> dict:
     # ★ 三套语料：设计集 / 留出集 / 独立探针集。
     #   只报前两套是"自己测自己"；探针集是 2026-11-06 换买家身份另写的 25 条，
     #   一次就抓出 8 个真缺陷（15位身份证、复姓、T1/2201、路名地址、非ASCII名…）。
-    for fn in ("samples_200.csv", "holdout_adversarial.csv", "probe_20261106.csv"):
+    # 四套语料，四种生成方法（换方法才算换轴，换字符串不算）：
+    #   设计集（边写边补）/ 留出集（写完再补）/ 独立探针集（换买家身份另写）/
+    #   r1（机械变异 + 反向构造负样本：枚举型，不依赖我"想到"什么）
+    for fn in ("samples_200.csv", "holdout_adversarial.csv", "probe_20261106.csv",
+               "r1_20261106b.csv"):
         rep = evaluate(filename=fn)
         pt = rep["per_type"]
         checks = {
@@ -94,7 +98,7 @@ def step_masking() -> dict:
                    "recall": {k: v["recall"] for k, v in pt.items()},
                    "fp_rate": {k: v["fp_rate"] for k, v in pt.items()}}
     return {"name": "masking_recall", "ok": ok, "detail": res,
-            "cmd": "python tools/eval_masking.py [samples_200.csv|holdout_adversarial.csv|probe_20261106.csv]"}
+            "cmd": "python tools/eval_masking.py [samples_200.csv|holdout_adversarial.csv|probe_20261106.csv|r1_20261106b.csv]"}
 
 
 def step_audit() -> dict:

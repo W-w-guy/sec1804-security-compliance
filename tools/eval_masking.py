@@ -23,7 +23,13 @@ _CN = str.maketrans("零一二三四五六七八九〇两", "012345678902")
 def norm(typ: str, s: str) -> str:
     s = s.strip().translate(_FW).translate(_CN)
     if typ in ("手机号", "身份证号", "银行卡号"):
-        return re.sub(r"[\s\-\+.]", "", s).upper()
+        s = re.sub(r"[\s\-\+\.\(\）\)]", "", s).upper()
+        # 国际区号前缀：+86 138… 与 138… 是同一个号，不归一化就会被算成一漏一误报。
+        # ★ 2026-11-06 由机械变异语料抓到：`+86 (138)0013-8000` 被判 miss+fp 各一次，
+        #   而检测器其实是对的 —— 错在比对口径。
+        if typ == "手机号" and s.startswith("86") and len(s) == 13:
+            s = s[2:]
+        return s
     return re.sub(r"\s+", "", s)
 
 
