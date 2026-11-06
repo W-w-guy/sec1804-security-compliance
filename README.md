@@ -79,10 +79,25 @@ reports/
 
 ```
 $ python tools/dep_scan.py
-scope=requirements.lock 全闭包（交付物实际安装的版本） deps=36 denied=0 unknown=0 lock_mismatch=0 ok=True
+scope=requirements.lock 全闭包（版本以 lock 为准） deps=36 denied=0 unknown=0 env_drift=0 not_installed=0 strict_env=False ok=True
 $ python tools/cve_scan.py
 packages=36 with_vulns=0 unhandled=0 ok=True
 ```
+
+**关于 `env_drift`（版本漂移）**：包集合与版本都取自 `requirements.lock`，所以这份报告
+和「谁在哪台机器上跑」无关。`env_drift` 只表示**当前这台机器装的和 lock 不一样**，
+是提示、不是缺陷——否则审阅者在自己机器上跑 `verify.py`，会因为他装的 transitive 版本
+与我们不同而红一片，把真正的问题淹掉（这个坑我自己踩过一次，见 CHANGELOG）。
+要完全一致地自证：
+
+```
+$ pip install -r requirements.lock && python tools/dep_scan.py --strict-env
+scope=requirements.lock 全闭包（版本以 lock 为准） deps=36 denied=0 unknown=0 env_drift=0 not_installed=0 strict_env=True ok=True
+```
+
+`--strict-env` 时漂移与缺装都算失败；交付前那一次记录就是这么跑的（0 漂移 / 0 缺装）。
+本机没装的包不会静默跳过：进 `not_installed` 并逐个点名，`tests/test_deps.py` 要求
+「已扫 + 点名」正好等于 lock，不许漏。
 
 **这一块原来是个真缺陷，值得说清楚**（2026-11-06 补）：
 

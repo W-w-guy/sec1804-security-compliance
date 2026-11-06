@@ -61,10 +61,14 @@ def step_tests() -> dict:
         errors = int(suite.get("errors", 0))
         skipped = int(suite.get("skipped", 0))
     tail = [ln for ln in out.strip().splitlines() if ln.strip()][-1:]
-    return {"name": "unit_tests", "ok": rc == 0 and failures == 0 and errors == 0 and tests > 0,
+    step = {"name": "unit_tests", "ok": rc == 0 and failures == 0 and errors == 0 and tests > 0,
             "passed": tests - failures - errors - skipped, "failed": failures + errors,
-            "collected": tests, "skipped": skipped,
+            "collected": tests, "skipped": skipped, "rc": rc,
             "cmd": "python tools/run_tests.py", "tail": tail}
+    if not step["ok"]:                     # 失败时必须留下原因，否则报告只有 detail: null
+        step["tail"] = out.strip().splitlines()[-25:]
+        step["xml_present"] = os.path.exists(xml)
+    return step
 
 
 def step_masking() -> dict:
@@ -147,6 +151,9 @@ def step_license() -> dict:
         detail = json.loads(out[out.index("{"):])
     except Exception:
         detail = {"raw": out[-400:]}
+    if isinstance(detail, dict) and detail.get("env_drift"):
+        detail["note"] = ("本机环境与 requirements.lock 不同（漂移项仅提示，不判失败）；"
+                          "要完全一致请 pip install -r requirements.lock")
     return {"name": "license_scan", "ok": rc == 0, "detail": detail,
             "cmd": "python tools/dep_scan.py --json"}
 

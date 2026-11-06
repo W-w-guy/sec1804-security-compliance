@@ -90,31 +90,6 @@ def _read_lock() -> dict:
     return out
 
 
-def _lock_mismatch(rows: list[dict]) -> list[dict]:
-    """扫描环境与 requirements.lock 逐一比对。
-
-    ★ 这条是 2026-11-06 补的：早先 dep_scan 只扫 requirements.txt 种子求闭包，
-      但版本取的是【运行环境里已装的那个】。结果本机装的是 cryptography 50.0.2，
-      报告写下 50.0.2，而 requirements.txt 钉的是 44.0.0（有 HIGH）——
-      报告的 scope 写着「交付物」，实际扫的是本机。审阅者一对就露。
-      现在口径改成：报告必须与 lock 完全一致，不一致直接判失败。
-    """
-    lock = _read_lock()
-    if not lock:
-        return [{"name": "<lock>", "issue": "requirements.lock 缺失，无法证明扫的就是交付版本"}]
-    bad = []
-    for r in rows:
-        key = _canon(r["name"] or "")
-        want = lock.get(key)
-        if want is None:
-            bad.append({"name": r["name"], "issue": f"lock 里没有这个包（环境有 {r['version']}）"})
-        elif want != r["version"]:
-            bad.append({"name": r["name"], "issue": f"版本不一致：环境 {r['version']} / lock {want}"})
-    for key in sorted(set(lock) - {_canon(r["name"] or "") for r in rows}):
-        bad.append({"name": key, "issue": f"lock 里有、环境里没装（{lock[key]}）"})
-    return bad
-
-
 def classify(lic: str) -> str:
     up = lic or ""
     if DENY_RE.search(up):
@@ -133,19 +108,26 @@ def licence_of(dist) -> str:
     return lic
 
 
-def scan() -> dict:
+def scan(strict_env: bool = False) -> dict:
     """扫描对象 = requirements.lock（交付物实际安装的那组版本）。
 
-    ★ 2026-11-06 改：早先是从 requirements.txt 种子跑依赖闭包、版本取环境里装的那个，
-      报告写着「requirements.txt 依赖闭包」，实际扫的却是本机环境。
-      现在 lock 就是唯一事实源：闭包与版本都来自 lock，环境对不上直接判失败。
+    ★ 2026-11-06 两次改：
+      1) 早先从 requirements.txt 种子跑闭包、版本取环境里装的那个，报告却写「交付物」→ 报告说谎。
+      2) 改严之后矫枉过正：环境与 lock 不一致就整条判失败 → 审阅者在自己的机器上
+         `python tools/verify.py` 必然 FAIL（他装的 transitive 版本不可能和我们的 lock 一样）。
+         这不是缺陷，是噪声，而且会把真缺陷淹掉。
+    现在的口径：
+      - 版本、闭包 = lock（唯一事实源），漏洞扫描 tools/cve_scan.py 也按 lock 查；
+      - 许可判定仍读已装 dist 的元数据，但把 env_version 与 drift 逐行写进报告；
+      - ok 只看 deny / unknown（契约本身）；漂移单列 env_drift，明示"不是同一组版本"；
+      - `--strict-env` 时漂移也判失败，用于「干净 venv 全量自证」那一次记录。
     """
     lock = _read_lock()
     if not lock:
         return {"scope": "requirements.lock 全闭包", "total": 0, "denied": [], "unknown": [],
-                "lock_mismatch": [{"name": "<lock>", "issue": "requirements.lock 缺失"}],
+                "env_drift": [{"name": "<lock>", "issue": "requirements.lock 缺失"}],
                 "not_installed": [], "ok": False, "rows": []}
-    rows, missing, mismatch = [], [], []
+    rows, missing, drift = [], [], []
     for key in sorted(lock):
         want = lock[key]
         try:
@@ -153,26 +135,30 @@ def scan() -> dict:
         except metadata.PackageNotFoundError:
             missing.append(f"{key}=={want}")
             continue
-        if dist.version != want:
-            mismatch.append({"name": key, "issue": f"环境 {dist.version} / lock {want}"})
+        env_ver = dist.version
+        if env_ver != want:
+            drift.append({"name": key, "issue": f"环境 {env_ver} / lock {want}"})
         lic = licence_of(dist)
         src = "metadata"
         if not lic or classify(lic) == "unknown":
             k = _canon(dist.metadata.get("Name") or "")
             if k in KNOWN:
                 lic, src = KNOWN[k], "static"
-        rows.append({"name": dist.metadata.get("Name"), "version": dist.version,
+        rows.append({"name": dist.metadata.get("Name"), "version": want,
+                     "env_version": env_ver, "drift": env_ver != want,
                      "license": lic[:80], "source": src, "verdict": classify(lic)})
     denied = [r for r in rows if r["verdict"] == "deny"]
     unknown = [r for r in rows if r["verdict"] == "unknown"]
-    return {"scope": "requirements.lock 全闭包（交付物实际安装的版本）", "total": len(rows),
-            "lock_mismatch": mismatch, "denied": denied, "unknown": unknown,
-            "not_installed": missing,
-            "ok": not denied and not unknown and not missing and not mismatch, "rows": rows}
+    ok = not denied and not unknown
+    if strict_env and (drift or missing):
+        ok = False
+    return {"scope": "requirements.lock 全闭包（版本以 lock 为准）", "total": len(rows),
+            "strict_env": strict_env, "env_drift": drift, "denied": denied, "unknown": unknown,
+            "not_installed": missing, "ok": ok, "rows": rows}
 
 
 if __name__ == "__main__":
-    res = scan()
+    res = scan(strict_env="--strict-env" in sys.argv)
     os.makedirs(os.path.join(ROOT, "reports"), exist_ok=True)
     with open(os.path.join(ROOT, "reports", "dep_scan.json"), "w", encoding="utf-8") as fh:
         json.dump(res, fh, ensure_ascii=False, indent=1)
@@ -180,8 +166,12 @@ if __name__ == "__main__":
         print(json.dumps({k: v for k, v in res.items() if k != "rows"}, ensure_ascii=False, indent=1))
     else:
         print(f"scope={res['scope']} deps={res['total']} denied={len(res['denied'])} "
-              f"unknown={len(res['unknown'])} lock_mismatch={len(res['lock_mismatch'])} ok={res['ok']}")
-        for b in res["lock_mismatch"]:
+              f"unknown={len(res['unknown'])} env_drift={len(res['env_drift'])} "
+              f"not_installed={len(res['not_installed'])} strict_env={res['strict_env']} ok={res['ok']}")
+        if res["env_drift"]:
+            print("  NOTE 环境与 lock 不同（以下是漂移项，不是缺陷；要完全一致请 "
+                  "`pip install -r requirements.lock`）")
+        for b in res["env_drift"]:
             print("  LOCK", b["name"], "|", b["issue"])
         for r in res["denied"]:
             print("  DENY", r["name"], r["version"], r["license"])

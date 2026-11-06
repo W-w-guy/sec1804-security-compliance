@@ -10,7 +10,7 @@
 | A03 | 注入 | 所有 SQL 走参数化（sqlite `?` / PG `%s`，无字符串拼接用户输入）；无 shell 调用 | `app/storage/db.py` 全部 `execute(sql, params)`；`grep` 无 f-string 拼接 WHERE | 已控制 |
 | A04 | 不安全设计 | 默认拒绝；审批与理由强制；脱敏先于一切外发；保留期默认最短 | `errors.py` 401/403 默认拒绝；`reason_min_len`；`RETAIN_*` 默认 90/30/24 | 已控制 |
 | A05 | 安全配置错误 | CORS 未开启、无默认口令、容器非 root（uid 10001）、健康检查 | `Dockerfile` `USER appuser`；`JWT_SECRET` 必须由环境注入 | 已控制（部署需改 JWT_SECRET） |
-| A06 | 易受攻击/过时组件 | **两件事分开做**：许可白名单（`dep_scan.py`）+ CVE/GHSA 漏洞扫描（`cve_scan.py`，查 OSV.dev）。版本由 `requirements.lock` 单一事实源锁定，扫描对象 = 交付物实际安装的版本 | `reports/dep_scan.json`（36 个依赖，0 deny / 0 unknown / 0 版本漂移）、`reports/cve_scan.json`（36 个依赖，**0 条未处理，0 条 HIGH/CRITICAL**）、`tests/test_deps.py` 5 项不变量守护 | 已控制 |
+| A06 | 易受攻击/过时组件 | **两件事分开做**：许可白名单（`dep_scan.py`）+ CVE/GHSA 漏洞扫描（`cve_scan.py`，查 OSV.dev）。版本由 `requirements.lock` 单一事实源锁定，扫描对象 = lock 全闭包（与跑在谁的机器上无关） | `reports/dep_scan.json`（36 个依赖，0 deny / 0 unknown，clean venv 内 0 漂移 / 0 缺装）、`reports/cve_scan.json`（36 个依赖，**0 条未处理，0 条 HIGH/CRITICAL**）、`tests/test_deps.py` 5 项不变量守护（含「报告覆盖率 = lock 全量」） | 已控制 |
 | A07 | 身份认证失效 | HS256 JWT（stdlib hmac，常量时间比较）、exp 校验、角色枚举校验 | `app/auth.py` `hmac.compare_digest`；`test_role_missing_permission` | 已控制 |
 | A08 | 数据完整性失效 | 审计哈希链只追加；篡改可逐行定位；告警本身入链 | `tests/test_audit.py` 7 项 | 已控制 |
 | A09 | 日志与监控失效 | 查看/导出/配置变更全量入审计；单人短时大量查看/导出触发告警 | `test_bulk_view_triggers_alert`、`test_export_threshold_alert` | 已控制 |
@@ -25,7 +25,7 @@
 
 ```
 $ python tools/dep_scan.py
-scope=requirements.lock 全闭包（交付物实际安装的版本） deps=36 denied=0 unknown=0 lock_mismatch=0 ok=True
+scope=requirements.lock 全闭包（版本以 lock 为准） deps=36 denied=0 unknown=0 env_drift=0 not_installed=0 strict_env=False ok=True
 ```
 
 全部落在契约白名单内：MIT / Apache-2.0 / BSD-2-Clause / BSD-3-Clause / PSF-2.0 / MPL-2.0（certifi，仅 httpx 测试依赖）。

@@ -67,9 +67,28 @@ def test_no_unhandled_high_or_critical():
 
 
 def test_license_scan_matches_lock():
+    """报告必须逐包覆盖 lock，且版本取自 lock —— 与"谁在什么机器上跑的"无关。
+
+    ★ 2026-11-06 改：早先这条断言的是"扫描环境与 lock 零漂移"。
+      但那等于要求审阅者的机器和我们一模一样，他跑一次就红给你看；
+      而且被改名的字段会让断言静默通过（假通过）。现在断言的是真正的不变量：
+      报告里的包集合 = lock 的包集合，且每个包的 version 字段 = lock 版本。
+    """
     rep = os.path.join(ROOT, "reports", "dep_scan.json")
     assert os.path.exists(rep), "缺少 reports/dep_scan.json"
     data = json.load(open(rep, encoding="utf-8"))
     assert data.get("ok") is True, f"许可扫描未通过：deny={data.get('denied')} unknown={data.get('unknown')}"
-    assert not data.get("lock_mismatch"), f"扫描环境与 lock 不一致：{data.get('lock_mismatch')}"
+    norm = lambda s: s.lower().replace("_", "-")          # noqa: E731  pydantic_core ≡ pydantic-core
+    lock = {norm(k): v for k, v in _pins(os.path.join(ROOT, "requirements.lock")).items()}
+    rows = {norm(r["name"]): r for r in data.get("rows", [])}
+    # 报告里可以出现 not_installed（本机没装的包无法读元数据），但必须逐个点名，
+    # 不许静默漏掉：rows ∪ not_installed 必须正好等于 lock。
+    skipped = {norm(x.split("==")[0]) for x in data.get("not_installed", [])}
+    missing = sorted(k for k in lock if k not in rows and k not in skipped)
+    assert not missing, f"报告既没扫也没点名，属于静默漏项：{missing}"
+    assert not (set(rows) & skipped), f"同一个包既扫了又标未安装：{set(rows) & skipped}"
+    wrong = {k: (rows[k]["version"], lock[k]) for k in lock
+             if k in rows and rows[k]["version"] != lock[k]}
+    assert not wrong, f"报告里的版本不是 lock 版本：{wrong}"
     assert data.get("total", 0) >= 30, "许可扫描覆盖的包数异常少，可能只扫了种子"
+    assert not data.get("denied") and not data.get("unknown"), "存在 deny/unknown 许可"

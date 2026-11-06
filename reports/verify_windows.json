@@ -21,6 +21,7 @@
    "failed": 0,
    "collected": 95,
    "skipped": 0,
+   "rc": 0,
    "cmd": "python tools/run_tests.py",
    "tail": [
     ".......................                                                  [100%]"
@@ -118,13 +119,13 @@
       3
      ],
      "missing_seq": [],
-     "tip": "111d2f981f47490e378f1afc6686bd0a2e01c88a6249c947b65f3b5e2d1ff98a"
+     "tip": "0d0a1f133e58169a681838c5b13667054482c916399b214a8c41dab623687a23"
     },
     "4_locate_seq3": [
      {
       "field": "content_or_hash",
-      "stored_hash": "a0c328ba565ff8cf679674c773f9c97cc5197ad0159a66d9044d88e7443d0444",
-      "recomputed": "4d0d4d7c05164da9a6dd806ce49d921c5c129bb6f99afc630fc9df6bc1f94527"
+      "stored_hash": "8e6b51a7ec6f9406163a092c7181371940afd920a899c530b5bb61ba410f9273",
+      "recomputed": "170947b5cb61303ccf1e86a42aef948b7b6be669dc4d1ba4a0dc8ecd60dcfdd8"
      }
     ],
     "5_retention_report": {
@@ -146,9 +147,10 @@
    "name": "license_scan",
    "ok": true,
    "detail": {
-    "scope": "requirements.lock 全闭包（交付物实际安装的版本）",
+    "scope": "requirements.lock 全闭包（版本以 lock 为准）",
     "total": 36,
-    "lock_mismatch": [],
+    "strict_env": false,
+    "env_drift": [],
     "denied": [],
     "unknown": [],
     "not_installed": [],

@@ -2,6 +2,32 @@
 
 本文件只记"对外可见的变化"与"验证结论"，不记内部重构细节。
 
+## v0.1.2 —— 修正 v0.1.1 里「环境漂移即失败」的过度矫正
+
+v0.1.1 把 `lock_mismatch` 做成了硬失败，本意是防「报告扫的是本机、不是交付物」。
+但它把判据从「报告的内容」挪到了「跑报告的那台机器」：审阅者 `pip install -r requirements.txt`
+之后跑 `python tools/verify.py`，他的 transitive 版本不可能和我们的 lock 逐字相同，
+于是 `license_scan` 必红 —— 这不是缺陷，是把真缺陷淹掉的噪声。（我自己两次在本机换
+解释器复跑就复现了：换到系统 Python，同一条命令红了 10 个包。）
+
+### 变更
+- `tools/dep_scan.py`：版本与包集合一律取自 `requirements.lock`，报告内容因此与运行环境无关；
+  环境不一致改列 `env_drift`（提示），缺装列 `not_installed`（逐个点名，不静默跳过）；
+  `ok` 只看 `deny` / `unknown` 这两个契约项。
+- 新增 `--strict-env`：漂移与缺装也算失败，用于「干净 venv 全量自证」那一次记录。
+- `tests/test_deps.py`：`test_license_scan_matches_lock` 改为断言真正的不变量 ——
+  「已扫 + 点名 = lock 全量」且每个包的 `version` 等于 lock 版本（原来断言环境零漂移，
+  等于要求审阅者的机器和我们一模一样）。顺带修掉字段改名后**断言静默通过**的假绿。
+- `tools/verify.py`：`unit_tests` 失败时记录 `rc` 与末 25 行输出（原先只有 `detail: null`，
+  红了不知道为什么红）；`license_scan` 在有漂移时附 `note`。
+- README / OWASP A06 同步口径，并说明漂移是提示而非缺陷。
+
+### 验证
+- 干净 venv（`pip install -r requirements.lock`）：`dep_scan.py --strict-env` → 36 包，
+  0 deny / 0 unknown / **0 漂移 / 0 缺装**，`ok=True`。
+- 系统 Python（有 10 个包漂移、1 个缺装）：`verify.py` 仍 **6/6 ALL PASS**，漂移如实列在报告里。
+- 单测：**95 passed / 0 fail / 0 error**。
+
 ## v0.1.1 —— 依赖漏洞扫描补齐（验收点 7 修正）
 
 **这是一次缺陷修复，不是一个新特性。** 首版只在验收点 7 交了「许可证扫描」，却把 OWASP A06

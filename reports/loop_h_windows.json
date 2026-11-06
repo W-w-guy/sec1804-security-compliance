@@ -8,7 +8,7 @@
    "round": 1,
    "name": "zip_integrity",
    "ok": true,
-   "detail": "{\"mode\": \"zip\", \"no_corrupt\": true, \"no_missing_core\": true, \"no_junk\": true, \"no_secrets\": true, \"entries\": 83, \"junk\": [], \"missing\": [], \"matches_git_head\": true, \"head_note\": \"rev=c2a80d19 head=76 zip=76\"}"
+   "detail": "{\"mode\": \"zip\", \"no_corrupt\": true, \"no_missing_core\": true, \"no_junk\": true, \"no_secrets\": true, \"entries\": 87, \"junk\": [], \"missing\": [], \"matches_git_head\": true, \"head_note\": \"rev=0ab8d23f head=80 zip=80\"}"
   },
   {
    "round": 2,
@@ -20,7 +20,7 @@
    "round": 3,
    "name": "clean_extract_tests",
    "ok": true,
-   "detail": "{\"rc_zero\": true, \"tests\": 90, \"failures\": 0, \"errors\": 0, \"all_green\": true}"
+   "detail": "{\"rc_zero\": true, \"tests\": 95, \"failures\": 0, \"errors\": 0, \"all_green\": true}"
   },
   {
    "round": 4,
@@ -32,7 +32,7 @@
    "round": 5,
    "name": "verify_five_steps",
    "ok": true,
-   "detail": "{\"rc_zero\": true, \"steps_all_passed\": true, \"expected_steps\": 5, \"no_fail\": true, \"record_written\": true, \"result_line\": true, \"passed\": 5, \"failed\": 0}"
+   "detail": "{\"rc_zero\": true, \"steps_all_passed\": true, \"expected_steps\": 6, \"no_fail\": true, \"record_written\": true, \"result_line\": true, \"passed\": 6, \"failed\": 0}"
   },
   {
    "round": 6,
@@ -49,8 +49,8 @@
   {
    "round": 8,
    "name": "readme_consistency",
-   "ok": false,
-   "detail": "{\"paths_exist\": true, \"cmds_exist\": true, \"n_collected\": 91, \"claimed_passed\": [77, 90], \"claims_match_collected\": false, \"claims_rounds_105\": true, \"missing\": [], \"cmd_missing\": [], \"checked_paths\": 13}"
+   "ok": true,
+   "detail": "{\"paths_exist\": true, \"cmds_exist\": true, \"n_collected\": 95, \"claimed_passed\": [90, 95], \"claims_match_collected\": true, \"claims_rounds_105\": true, \"missing\": [], \"cmd_missing\": [], \"checked_paths\": 18}"
   },
   {
    "round": 9,
@@ -68,7 +68,7 @@
    "round": 11,
    "name": "version_traceable",
    "ok": true,
-   "detail": "{\"version_in_init\": true, \"main_refs_single_source\": true, \"main_has_no_duplicate_literal\": true, \"version_in_readme\": true, \"has_changelog\": true, \"version\": \"0.1.0\"}"
+   "detail": "{\"version_in_init\": true, \"main_refs_single_source\": true, \"main_has_no_duplicate_literal\": true, \"version_in_readme\": true, \"has_changelog\": true, \"version\": \"0.1.1\"}"
   },
   {
    "round": 12,
@@ -95,7 +95,7 @@
    "detail": "{\"missing\": [], \"total\": 13}"
   }
  ],
- "passed": 14,
- "failed": 1,
+ "passed": 15,
+ "failed": 0,
  "skipped": []
 }
