@@ -133,7 +133,19 @@ def scan(strict_env: bool = False) -> dict:
         try:
             dist = metadata.distribution(key)
         except metadata.PackageNotFoundError:
+            # ★ 2026-11-06 补：许可与"这台机器装没装"无关。原先缺装直接 continue，
+            #   等于把该包的许可判定静默跳过 —— 一个 GPL 包只要本机没装就能溜过契约。
+            #   现在用静态许可表兜底；表里也没有 -> 记 unknown（判失败），不许静默通过。
             missing.append(f"{key}=={want}")
+            lic = KNOWN.get(key, "")
+            if lic:
+                rows.append({"name": key, "version": want, "env_version": None, "drift": False,
+                             "license": lic, "source": "static(not_installed)",
+                             "verdict": classify(lic)})
+            else:
+                rows.append({"name": key, "version": want, "env_version": None, "drift": False,
+                             "license": "", "source": "无法判定(未安装)",
+                             "verdict": "unknown"})
             continue
         env_ver = dist.version
         if env_ver != want:
@@ -160,7 +172,8 @@ def scan(strict_env: bool = False) -> dict:
 if __name__ == "__main__":
     res = scan(strict_env="--strict-env" in sys.argv)
     os.makedirs(os.path.join(ROOT, "reports"), exist_ok=True)
-    with open(os.path.join(ROOT, "reports", "dep_scan.json"), "w", encoding="utf-8") as fh:
+    with open(os.path.join(ROOT, "reports", "dep_scan.json"), "w", encoding="utf-8",
+              newline="\n") as fh:
         json.dump(res, fh, ensure_ascii=False, indent=1)
     if "--json" in sys.argv:
         print(json.dumps({k: v for k, v in res.items() if k != "rows"}, ensure_ascii=False, indent=1))

@@ -382,7 +382,7 @@ def _safe_write_report(path: str, obj) -> str:
     """
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w", encoding="utf-8") as fh:
+        with open(path, "w", encoding="utf-8", newline="\n") as fh:
             json.dump(obj, fh, ensure_ascii=False, indent=1)
         return "ok"
     except Exception as e:                          # noqa: BLE001

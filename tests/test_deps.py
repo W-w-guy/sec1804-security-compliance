@@ -69,10 +69,13 @@ def test_no_unhandled_high_or_critical():
 def test_license_scan_matches_lock():
     """报告必须逐包覆盖 lock，且版本取自 lock —— 与"谁在什么机器上跑的"无关。
 
-    ★ 2026-11-06 改：早先这条断言的是"扫描环境与 lock 零漂移"。
-      但那等于要求审阅者的机器和我们一模一样，他跑一次就红给你看；
-      而且被改名的字段会让断言静默通过（假通过）。现在断言的是真正的不变量：
-      报告里的包集合 = lock 的包集合，且每个包的 version 字段 = lock 版本。
+    ★ 2026-11-06 两改：
+      1) 原来断言"扫描环境与 lock 零漂移"，等于要求审阅者的机器和我们一模一样，
+         他跑一次就红给你看，而且会淹掉真问题。改成断言真正的不变量：
+         报告里的包集合与版本 = lock，与运行环境无关。
+      2) 随后发现"缺装的包"会被静默跳过 —— 一个 GPL 包只要本机没装就能溜过契约。
+         现在缺装必须用静态许可表兜底，兜不底就记 unknown 判失败；本测试守着这条：
+         凡未安装的包，判定来源不能是 metadata（那说明它其实装了），且必须有结论。
     """
     rep = os.path.join(ROOT, "reports", "dep_scan.json")
     assert os.path.exists(rep), "缺少 reports/dep_scan.json"
@@ -81,14 +84,17 @@ def test_license_scan_matches_lock():
     norm = lambda s: s.lower().replace("_", "-")          # noqa: E731  pydantic_core ≡ pydantic-core
     lock = {norm(k): v for k, v in _pins(os.path.join(ROOT, "requirements.lock")).items()}
     rows = {norm(r["name"]): r for r in data.get("rows", [])}
-    # 报告里可以出现 not_installed（本机没装的包无法读元数据），但必须逐个点名，
-    # 不许静默漏掉：rows ∪ not_installed 必须正好等于 lock。
     skipped = {norm(x.split("==")[0]) for x in data.get("not_installed", [])}
-    missing = sorted(k for k in lock if k not in rows and k not in skipped)
-    assert not missing, f"报告既没扫也没点名，属于静默漏项：{missing}"
-    assert not (set(rows) & skipped), f"同一个包既扫了又标未安装：{set(rows) & skipped}"
+
+    # 每个 lock 包都必须有一条结论（含"本机未装但静态表判过"的那条）。
+    # 允许"缺装"就允许静默跳过——实测把 continue 放回去，这条断言是唯一能抓住它的。
+    assert set(rows) == set(lock), \
+        f"报告没覆盖 lock 全量：漏={sorted(set(lock) - set(rows))} 多={sorted(set(rows) - set(lock))}"
     wrong = {k: (rows[k]["version"], lock[k]) for k in lock
              if k in rows and rows[k]["version"] != lock[k]}
     assert not wrong, f"报告里的版本不是 lock 版本：{wrong}"
+    for k in sorted(skipped & set(rows)):
+        assert rows[k]["source"] != "metadata", f"{k} 标为未安装，却从环境读到了元数据"
+        assert rows[k]["verdict"] in ("allow", "unknown"), f"{k} 未安装且许可无法判定时不许放行"
     assert data.get("total", 0) >= 30, "许可扫描覆盖的包数异常少，可能只扫了种子"
     assert not data.get("denied") and not data.get("unknown"), "存在 deny/unknown 许可"

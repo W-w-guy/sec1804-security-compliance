@@ -128,7 +128,7 @@ def main(argv=None) -> int:
     rep = build(pkgs, results)
     rep["_lock_snapshot"] = [list(p) for p in pkgs]
     os.makedirs(os.path.dirname(rep_path), exist_ok=True)
-    json.dump(rep, open(rep_path, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+    json.dump(rep, open(rep_path, "w", encoding="utf-8", newline="\n"), ensure_ascii=False, indent=1)
     print(f"packages={rep['packages']} with_vulns={rep['with_vulns']} "
           f"unhandled={len(rep['unhandled'])} ok={rep['ok']}")
     for u in rep["unhandled"]:

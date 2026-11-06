@@ -155,7 +155,7 @@ def f4(rng):
     tok = c.vault.tokenize("手机号", "13800138004", "a", "admin")["token"]
     kp = os.path.join(c.settings.kms_dir, "keys.json")
     c.close()
-    open(kp, "w", encoding="utf-8").write("{ this is not json")
+    open(kp, "w", encoding="utf-8", newline="\n").write("{ this is not json")
     try:
         c2, _ = new_box(kms_dir=c.settings.kms_dir, db_path=c.settings.sqlite_path)
     except Exception as e:                          # noqa: BLE001
@@ -499,7 +499,7 @@ def _safe_write_report(path: str, obj) -> str:
     """
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w", encoding="utf-8") as fh:
+        with open(path, "w", encoding="utf-8", newline="\n") as fh:
             json.dump(obj, fh, ensure_ascii=False, indent=1)
         return "ok"
     except Exception as e:                          # noqa: BLE001

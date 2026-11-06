@@ -22,6 +22,21 @@ v0.1.1 把 `lock_mismatch` 做成了硬失败，本意是防「报告扫的是�
   红了不知道为什么红）；`license_scan` 在有漂移时附 `note`。
 - README / OWASP A06 同步口径，并说明漂移是提示而非缺陷。
 
+- `tools/dep_scan.py`：**本机未装的包不再静默跳过** —— 许可与「这台机器装没装」无关，
+  原先 `continue` 等于把该包从契约里漏掉（一个 GPL 包只要没装就能溜过去）。现在用静态
+  许可表兜底，兜不底记 `unknown` 判失败；报告因此对 lock 全量 36 个包逐一有结论。
+- 所有写报告的地方显式 `newline="\n"`：Windows 与 Linux 生成的 `reports/*.json` 现在逐字节一致，
+  「复跑同结论」不再受 git 换行归一化影响。
+- `tests/test_deps.py::test_license_scan_matches_lock`：断言收紧为「rows 必须覆盖 lock 全量」，
+  并做过变异测试验证它真的会红（见下）。
+
+### 变异测试（验证断言不是摆设）
+| 人为注入的缺陷 | 结果 |
+|---|---|
+| 报告写环境版本而非 lock 版本 | `test_deps` **红** |
+| 把「缺装静默跳过」放回去 | `test_deps` **红** |
+| 改了 lock 但不重新生成报告（报告过期） | `test_deps` **红** |
+
 ### 验证
 - 干净 venv（`pip install -r requirements.lock`）：`dep_scan.py --strict-env` → 36 包，
   0 deny / 0 unknown / **0 漂移 / 0 缺装**，`ok=True`。
