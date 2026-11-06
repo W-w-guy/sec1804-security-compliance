@@ -4,6 +4,7 @@ __pycache__/
 .pytest_cache/
 .kms/
 reports/_pytest.xml
+reports/_h.xml
 *.db
 *.db-wal
 *.db-shm

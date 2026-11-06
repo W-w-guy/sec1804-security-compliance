@@ -164,7 +164,7 @@ def h1(rng):
     """
     d, zp = source_dir()
     # 本次运行会产生的文件（不算交付物残留）
-    runtime_artifacts = {"_pytest.xml"}
+    runtime_artifacts = {"_pytest.xml", "_h.xml"}
     if zp:
         with zipfile.ZipFile(zp) as z:
             names = z.namelist()
@@ -176,7 +176,7 @@ def h1(rng):
         missing = [m for m in must if m not in names]
         junk = [n for n in names if any(k in n for k in
                                        ("__pycache__", ".pyc", ".venv", ".kms",
-                                        ".pytest_cache", ".db", "_pytest.xml", ".git/"))]
+                                        ".pytest_cache", ".db", "_pytest.xml", "_h.xml", ".git/"))]
         secrets = [n for n in names if n.endswith(("keys.json", ".env", "id_rsa"))]
         # ★ 不变量：交付包必须与某个 git commit 完全一致
         #   否则"我交的"和"买家 clone 的"是两份不同的东西 —— 这是最隐蔽也最致命的交付问题
