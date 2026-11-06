@@ -16,10 +16,19 @@ TYPES = ("身份证号", "银行卡号", "手机号", "邮箱", "地址", "姓�
 
 SURNAMES = set("赵钱孙李周吴郑王冯陈褚卫蒋沈韩杨朱秦尤许何吕施张孔曹严华金魏陶姜戚谢邹喻柏水窦章云苏潘葛范彭郎鲁韦马苗方俞任袁柳鲍史唐费廉岑薛雷贺倪汤滕殷罗毕郝邬安常乐于时傅皮卞齐康伍余元卜顾孟平黄和穆萧尹姚邵湛汪祁毛禹狄米贝明臧计伏成戴谈宋茅庞熊纪舒屈项祝董梁杜阮蓝闵席季麻强贾路娄危江童颜郭梅盛林刁钟徐邱骆高夏蔡田樊胡凌霍虞万支柯昝管卢莫经房裘缪干解应宗丁宣邓郁单杭洪包诸左石崔吉钮龚程嵇邢滑裴陆荣翁荀羊於惠甄曲家封芮羿储靳汲邴糜松井段富巫乌焦巴弓牧隗山谷车侯宓蓬全郗班仰秋仲伊宫宁仇栾暴甘钭厉戎祖武符刘景詹束龙叶幸司韶郜黎蓟薄印宿白怀蒲邰从鄂索咸籍赖卓蔺屠蒙池乔阴胥能苍双闻莘党翟谭贡劳逄姬申扶堵冉宰郦雍却璩桑桂濮牛寿通边扈燕冀郏浦尚农温别庄晏柴瞿阎充慕连茹习宦艾鱼容向古易慎戈廖庾终暨居衡步都耿满弘匡国文寇广禄阙东欧殳沃利蔚越夔隆师巩厍聂晁勾敖融冷訾辛阚那简饶空曾毋沙乜养鞠须丰巢关蒯相查后荆红游竺权逯盖益桓公")
 
+# 复姓（两字姓）。★ 2026-11-06 补：独立探针集里「收货人：欧阳修文」整条漏检。
+# 单姓表里只有「欧」；LOOSE 正则按 2~3 字切分时「欧阳修」右侧紧跟「文」（仍是汉字）→ 右边界不成立，
+# 而「阳修文」左侧不成立，两头落空。复姓必须按 3~4 字单独匹配。
+COMPOUND_SURNAMES = set("""欧阳 太史 端木 上官 司马 东方 独孤 南宫 万俟 闻人 夏侯 诸葛 尉迟 公羊 赫连 澹台
+公冶 宗政 濮阳 淳于 单于 太叔 申屠 公孙 仲孙 轩辕 令狐 钟离 宇文 长孙 慕容 鲜于 司空 闾丘
+子车 亓官 司寇 巫马 公西 颛孙 壤驷 公良 漆雕 乐正 宰父 谷梁 拓跋 夹谷 段干 百里 东郭 南门
+呼延 羊舌 微生 梁丘 左丘 东门 西门 第五 皇甫 司徒""".split())
+
 NAME_BLACKLIST = set("""单元 号楼 小区 花园 公寓 大厦 广场 家园 新村 街道 楼层 门牌 号码 电话 手机
 谢谢 马上 方便 高兴 黄金 红色 关心 文明 王国 石头 何时 于是 仍然 任何 管理 司机 管家 钱包
 包含 位于 常在 尤其 江湖 沈阳 阳台 林业 武力 常规 史诗 毛重 米色 贝壳 明白 成语 句子 任命
 柳树 白菜 江水 海洋 温暖 渠道 程度 何处 金额 银色 骑手 站点 政策 面试 报名 工资 结算 兼职
+车牌 车号 车型 驾龄 年龄 性别 籍贯 民族 学历 婚姻 身高 体重 时段 区域 城市 部门 岗位 班次 待遇
 全职 底薪 提成 材料 经验 配送 外卖 健康 医院 面试官""".split())
 BAD_SECOND = set("的了是和有我这那要会能好呢吧啊就都也还又非常很更最没不人到上下里外")
 
@@ -32,8 +41,20 @@ ANCHORS = "姓名|名字|我叫|本人|联系人|骑手|候选人|申请人是|�
 CN_NAME_CTX = re.compile(r"(?:" + ANCHORS + r")[:：\s]{0,3}([\u4e00-\u9fa5]{2,4})(?![\u4e00-\u9fa5])")
 CN_NAME_VERB = re.compile(r"(?=([\u4e00-\u9fa5]{2,3})(?:申请|报名|来电|联系|入住|已到|面试|本人))")
 CN_NAME_LOOSE = re.compile(r"(?<![\u4e00-\u9fa5])([\u4e00-\u9fa5]{2,3})(?![\u4e00-\u9fa5])")
+# 复姓姓名：3~4 字（欧阳修文 / 司马光 / 上官婉儿）。单姓正则按 2~3 字切分，
+# 遇到复姓+双名会因左右边界同时不成立而整条漏掉，所以必须单独一条。
+CN_NAME_COMPOUND = re.compile(
+    r"(?<![\u4e00-\u9fa5])(" + "|".join(sorted(COMPOUND_SURNAMES, key=len, reverse=True)) +
+    r")[\u4e00-\u9fa5]{1,2}(?![\u4e00-\u9fa5])")
 EN_TOKEN = r"[A-Z][a-z]{0,15}(?:[-'][A-Z][a-z]{0,15})*"
+# 非 ASCII 拉丁字母（土耳其/北欧/西欧）：Ayşe Yılmaz、Müller、Ødegaard
+# ★ 只写 À-ÿ（Latin-1 Supplement）不够：土耳其语 ı(U+0131)/ş(U+015F)/ğ(U+011F)
+#   和 İ(U+0130) 都在 Latin Extended-A 里，第一版实测「Ayşe Yılmaz」仍然漏检。
+EN_TOKEN_U = r"[A-Z\u00C0-\u024F][A-Za-z\u00C0-\u024F'’-]{1,15}"
+EN_NAME_U = re.compile(r"\b(" + EN_TOKEN_U + r")\s+(" + EN_TOKEN_U + r")\b")
 EN_NAME = re.compile(r"\b(" + EN_TOKEN + r")\s+(" + EN_TOKEN + r")\b")
+# 民族姓名用间隔号连接：买买提·艾力 / 阿依古丽·买买提（单姓正则只会抓到后半截）
+CN_NAME_DOT = re.compile(r"[\u4e00-\u9fa5]{2,6}[·•·][\u4e00-\u9fa5]{2,6}")
 EN_NAME_COMMA = re.compile(r"\b([A-Z][a-z]{1,15})\s*,\s*([A-Z][a-z]{1,15})\b")
 EMAIL = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
 
@@ -49,13 +70,20 @@ ADDR = re.compile(
     r"(?:\s*\d{1,4}\s*(?:层|楼))?"
     r"(?:\s*\d{1,4}\s*(?:室|号房))?(?:\s*\d{1,4}(?!\d))?")
 ADDR_COMMUNITY = re.compile(
-    r"(?:[\u4e00-\u9fa5]{2,8}(?:市|区|县))?"
-    r"[\u4e00-\u9fa5]{2,10}(?:小区|花园|公寓|大厦|广场|家园|新村|软件园|科技园)"
-    r"(?:\s*\d{1,4}\s*(?:栋|幢|号楼|座))?(?:\s*\d{1,4}\s*单元)?"
-    r"(?:\s*\d{1,4}\s*(?:层|楼))?(?:\s*\d{1,4}\s*(?:室|号房))?(?:\s*\d{1,4}(?!\d))?")
+    r"(?:[\u4e00-\u9fa5]{2,8}(?:省|自治区))?"
+    r"(?:[\u4e00-\u9fa5]{2,8}(?:市|自治州))?"
+    r"(?:[\u4e00-\u9fa5]{1,8}(?:区|县))?"
+    r"[\u4e00-\u9fa5A-Za-z]{2,10}(?:小区|花园|公寓|大厦|广场|家园|新村|软件园|科技园"
+    r"|SOHO|soho|中心|产业园|工业园|创业园|商务楼|写字楼|园区|商城|大厦)"
+    r"(?:\s*[A-Za-z]?\s*\d{1,4}\s*(?:栋|幢|号楼|座|楼))?(?:\s*\d{1,4}\s*单元)?"
+    r"(?:\s*\d{1,4}\s*(?:层|楼))?(?:\s*\d{1,4}\s*(?:室|号房))?"
+    # ★ 2026-11-06：楼栋码 + 房号可能连续出现两次（"T1 2201"），只留一组会把 2201 漏在明文里
+    r"(?:\s*[A-Za-z]?\s*\d{1,4}(?!\d)){0,2}")
 ADDR_HEAD = re.compile(r"^(?:我住|我在|现住|住在|位于|地址是|地址：|地址:|地址|住|在)+")
 
 CARD_CTX = re.compile(r"(?:卡|卡号|账号|账户|开户|打款|工资卡)")
+# 15 位身份证必须带证件语境，否则 15 位流水号会被吞（宁可少报，不可把订单号报成身份证）
+ID_CTX = re.compile(r"(?:身份证|证件|身份|证号|ID|id|老身份证)")
 CARD_NOISE = re.compile(r"(?:订单|单单号|单号|编号|流水|工号|尾号|末位)")
 
 
@@ -169,6 +197,19 @@ class MaskingSession:
             core = re.sub(r"[\s\-\.,()]", "", raw)
             if core.startswith("86") and len(core) > 18:
                 core = core[2:]
+            # ★ 2026-11-06 补：15 位旧号（1999 年前签发）此前完全不认。
+            #   验收点 2 写的是「身份证号召回率 100%」，而我们的语料只有 18 位，
+            #   独立探针集里「老身份证 320311770706002」整条漏检 —— 这就是「在自造语料上 100%」。
+            #   15 位必须以证件语境为前置（否则 15 位流水号/订单号会一起被吞），
+            #   且地区码、出生日期都要能过校验。
+            if len(core) == 15 and re.fullmatch(r"\d{15}", core):
+                if ID_CTX.search(text[max(0, m.start() - 8):m.start()]):
+                    area = int(core[:6]) if core[:6].isdigit() else 0
+                    yy = int("19" + core[6:8])
+                    if 110000 <= area <= 659000 and _valid_date(yy, int(core[8:10]), int(core[10:12])):
+                        out.append({"type": "身份证号", "start": m.start(), "end": m.end(),
+                                    "text": raw})
+                continue
             if len(core) == 18 and re.fullmatch(r"\d{17}[\dXx]", core):
                 y, mo, d = int(core[6:10]), int(core[10:12]), int(core[12:14])
                 if _valid_date(y, mo, d):
@@ -226,8 +267,15 @@ class MaskingSession:
             for m in pat.finditer(text):
                 s, e = m.start(), m.end()
                 frag = text[s:e]
-                # 必须有“号码级”标志，否则只是路名/站名
-                if not re.search(r"(?:号|栋|幢|号楼|座|单元|室|号房|层|街道|镇|乡|村|社区|园)", frag):
+                # 必须有"号码级"标志，否则只是路名/站名。
+                # ★ 2026-11-06 补两类：拉丁楼栋码（T1 / A座 / B2）——独立探针集里
+                #   「北京市朝阳区望京SOHO T1 2201」整条漏检，就是因为标志只认中文的 号/栋/座；
+                #   以及「区+路」这种无门牌但已到街道级的写法（广州天河区体育西路）。
+                has_num = re.search(r"(?:号|栋|幢|号楼|座|单元|室|号房|层|街道|镇|乡|村|社区|园"
+                                    r"|[A-Za-z]\s?\d{1,4})", frag)
+                has_district = re.search(r"(?:市|区|县)", frag) and re.search(
+                    r"(?:路|街|巷|弄|大道|胡同)", frag)
+                if not (has_num or has_district):
                     continue
                 if len(re.sub(r"\s", "", frag)) < 6:
                     continue
@@ -250,10 +298,16 @@ class MaskingSession:
 
     def _find_names(self, text: str) -> list[dict]:
         out = []
+        for m in CN_NAME_DOT.finditer(text):
+            out.append({"type": "姓名", "start": m.start(), "end": m.end(), "text": m.group(0)})
         for m in EN_NAME_COMMA.finditer(text):
             out.append({"type": "姓名", "start": m.start(), "end": m.end(), "text": m.group(0)})
         for m in EN_NAME.finditer(text):
             out.append({"type": "姓名", "start": m.start(), "end": m.end(), "text": m.group(0)})
+        for m in EN_NAME_U.finditer(text):      # 非 ASCII 拉丁名（Ayşe Yılmaz）
+            if m.group(0) not in [o["text"] for o in out]:
+                out.append({"type": "姓名", "start": m.start(), "end": m.end(),
+                            "text": m.group(0)})
         for m in CN_NAME_CTX.finditer(text):
             if self._looks_like_name(m.group(1)):
                 out.append({"type": "姓名", "start": m.start(1), "end": m.end(1), "text": m.group(1)})
@@ -261,6 +315,12 @@ class MaskingSession:
             cand = m.group(1)
             if cand[0] in SURNAMES and self._looks_like_name(cand) and cand not in NAME_BLACKLIST:
                 out.append({"type": "姓名", "start": m.start(1), "end": m.end(1), "text": cand})
+        # 复姓优先于单姓；只有当整串里没抓到别的姓名时才走宽松匹配（避免乱认）
+        if not out:
+            for m in CN_NAME_COMPOUND.finditer(text):
+                cand = m.group(0)
+                if cand not in NAME_BLACKLIST and cand not in STOPWORDS:
+                    out.append({"type": "姓名", "start": m.start(), "end": m.end(), "text": cand})
         if not out:
             for m in CN_NAME_LOOSE.finditer(text):
                 cand = m.group(1)

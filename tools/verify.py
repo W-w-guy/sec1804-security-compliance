@@ -75,10 +75,14 @@ def step_masking() -> dict:
     from tools.eval_masking import evaluate
     res = {}
     ok = True
-    for fn in ("samples_200.csv", "holdout_adversarial.csv"):
+    # ★ 三套语料：设计集 / 留出集 / 独立探针集。
+    #   只报前两套是"自己测自己"；探针集是 2026-11-06 换买家身份另写的 25 条，
+    #   一次就抓出 8 个真缺陷（15位身份证、复姓、T1/2201、路名地址、非ASCII名…）。
+    for fn in ("samples_200.csv", "holdout_adversarial.csv", "probe_20261106.csv"):
         rep = evaluate(filename=fn)
         pt = rep["per_type"]
         checks = {
+            "no_misses": not rep["misses"],
             "phone_recall": pt["手机号"]["recall"] >= 1.0,
             "idcard_recall": pt["身份证号"]["recall"] >= 1.0,
             "name_recall": pt["姓名"]["recall"] >= 0.95,
@@ -90,7 +94,7 @@ def step_masking() -> dict:
                    "recall": {k: v["recall"] for k, v in pt.items()},
                    "fp_rate": {k: v["fp_rate"] for k, v in pt.items()}}
     return {"name": "masking_recall", "ok": ok, "detail": res,
-            "cmd": "python tools/eval_masking.py [samples_200.csv|holdout_adversarial.csv]"}
+            "cmd": "python tools/eval_masking.py [samples_200.csv|holdout_adversarial.csv|probe_20261106.csv]"}
 
 
 def step_audit() -> dict:

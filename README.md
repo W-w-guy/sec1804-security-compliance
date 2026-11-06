@@ -46,11 +46,46 @@ tools/
 data/
   samples_200.csv          228 条合成样本（200 主体 + 边界）
   holdout_adversarial.csv  38 条人工对抗样本（不参与调参，只用来说实话）
+  probe_20261106.csv       25 条**独立探针集**（换买家身份另写，见下节「三套语料」）
 CHANGELOG.md   变化与验证结论
 .dockerignore  构建上下文裁剪
 reports/
   verify_windows.json / verify_linux.json / dep_scan.json / cve_scan.json / OWASP_TOP10.md
 ```
+
+## 三套语料：为什么「100%」不可信，以及探针集抓出了什么
+
+验收点 2 要的是「手机号与身份证号召回率 100%，姓名与地址 ≥95%，并写明误报率」。
+这里有一个必须自己先说破的问题：**在我自己设计的语料上拿 100% 和 0 误报，说明不了什么。**
+
+| 语料 | 条数 | 谁写的 | 首次结果 | 修复后 |
+|---|---|---|---|---|
+| `samples_200.csv`（设计集） | 228 | 我，边写检测器边补 | 100% / 0 误报 | 100% / 0 误报 |
+| `holdout_adversarial.csv`（留出集） | 38 | 我，写完检测器后补 | 100% / 0 误报 | 100% / 0 误报 |
+| **`probe_20261106.csv`（独立探针集）** | **25** | **换「买家/审阅者」身份另写，不看检测器实现** | **17/25 全对（8 条判错）** | **25/25，0 漏检 0 误报** |
+
+**探针集第一次跑就抓出 8 个真缺陷**，其中第一条直接对着验收点的硬指标：
+
+| # | 问题 | 具体表现 |
+|---|---|---|
+| 1 | **15 位旧身份证整条漏检** | 1999 年前签发的 15 位号，验收点写的是「身份证号召回率 100%」，而我们只认 18 位。「老身份证 320311770706002」完全没被识别 |
+| 2 | 复姓姓名漏检 | 「欧阳修文」：单姓表里只有「欧」，2~3 字切分时「欧阳修」右侧紧跟汉字、左边界又不成立，两头落空 |
+| 3 | 英文楼栋码地址漏检 | 「望京SOHO T1 2201」：号码级标志只认中文的 号/栋/座，拉丁码被一票否决 |
+| 4 | 补上后**只吞了 T1，把 2201 留在明文** | 正则只允许一组「楼栋码+房号」，`T1 2201` 的第二段漏在掩码之外——**这种半截掩码比完全不掩更危险** |
+| 5 | 无门牌号的路名地址漏检 | 「广州天河区体育西路」：没有 号/栋 就不判地址 |
+| 6 | 非 ASCII 拉丁名漏检 | 「Ayşe Yılmaz」：土耳其语 `ı/ş` 在 Latin Extended-A，我只放开了 `À-ÿ` 区间，仍然匹配不上 |
+| 7 | 少数民族姓名只抓半截 | 「买买提·艾力」只掩了「艾力」，前面的「买买提·」留在明文 |
+| 8 | **误报：把「车牌」两字当成姓名** | 「车牌 粤B12345」里的「车牌」被判定为人名——黑名单缺这类业务词 |
+
+还有第 9 个，出在评测脚本自己身上：`norm()` 不做全角/中文数字归一化，
+于是「一三八零零一三八零零零」和「13800138000」被算成两条不同的 PII，**召回率本身就是错的**。
+
+这些全部已修，并钉成 `tests/test_masking_probe.py`（3 项）回归：任何一条再退化，单测立刻红。
+另外 `tools/verify.py` 的 `masking_recall` 步现在把三套语料都跑一遍，任一漏检即失败。
+
+> 口径：**我方不宣称「在所有真实语料上 100%」。** 探针集只有 25 条，它证明的是
+> 「换了身份、换了写法之后仍然成立」，不等于覆盖了所有方言与生僻写法。
+> 已知边界见文末。
 
 ## 八个验收点怎么对上
 
@@ -142,7 +177,7 @@ scope=requirements.lock 全闭包（版本以 lock 为准） deps=36 denied=0 un
 3. 报告里不许留 `HIGH` / `CRITICAL`；有 CRITICAL 的必须有修复版本。
 
 并且 `requirements.lock` 是在**干净 venv** 里 `pip install` 后 `pip freeze` 出来的，
-95 项单测就是在这组版本上跑通的——「钉住的 = 验证过的 = 扫描过的」三者不再分叉。
+98 项单测就是在这组版本上跑通的——「钉住的 = 验证过的 = 扫描过的」三者不再分叉。
 
 ## 验证记录（命令、输入、期望输出；复跑同结论）
 
@@ -150,10 +185,10 @@ scope=requirements.lock 全闭包（版本以 lock 为准） deps=36 denied=0 un
 
 ```
 $ python tools/run_tests.py
-95 passed
+98 passed
 ```
-期望：`95 collected / 95 passed`，0 failed。复跑一致（无随机、无网络、无时钟依赖）。
-两平台实测：**Windows 11 / Python 3.11.7 → 95 passed**；**Ubuntu 24.04 / Python 3.12.3 → 95 passed**。
+期望：`95 collected / 98 passed`，0 failed。复跑一致（无随机、无网络、无时钟依赖）。
+两平台实测：**Windows 11 / Python 3.11.7 → 98 passed**；**Ubuntu 24.04 / Python 3.12.3 → 98 passed**。
 
 > 为什么要包装一层 `tools/run_tests.py` 而不是直接 `python -m pytest`：
 > 机器上若装了 ROS2，`/opt/ros/*/lib/python3.12/site-packages` 里的 `launch_testing`
@@ -254,7 +289,7 @@ $ docker compose up -d --build
  Container sec1804-cache-1  Healthy
  Container sec1804-api-1    Started
 $ curl -s localhost:18081/health
-{"status":"ok","module":"task-5-security-compliance","version":"0.1.2"}
+{"status":"ok","module":"task-5-security-compliance","version":"0.1.3"}
 $ curl -s localhost:18081/openapi.json | jq '.paths|length'
 27
 $ curl -s -XPOST localhost:18081/api/v1/vault/tokenize -H "Authorization: Bearer $TOK" \
@@ -410,7 +445,7 @@ D 组结果: 15/15 通过
 
 | 组 | 主题 | Windows | Ubuntu（容器，真 PG16 + 真 Vault 1.18） |
 |---|---|---|---|
-| 单测 | 功能 | **90 passed**（当轮记录；当前 95） | **90 passed**（当轮记录；当前 95） |
+| 单测 | 功能 | **90 passed**（当轮记录；当前 98） | **90 passed**（当轮记录；当前 98） |
 | verify | 一键验收 | ALL PASS | ALL PASS |
 | A（10 轮） | 功能面 | 10/10 | 10/10 |
 | B（10 轮） | 并发/跨方言/边界/KMS | 8 pass + 2 skip（无 PG/Vault，**不计为通过**） | 10/10 |
@@ -573,7 +608,7 @@ H 组结果: 15/15 通过
 
 | 组 | 主题 | Windows 11 / Py3.11.7 | Ubuntu 容器（真 PG16 + 真 Vault 1.18） |
 |---|---|---|---|
-| 单测 | 功能 | **90 passed**（当轮记录；当前 95） | **90 passed**（当轮记录；当前 95） |
+| 单测 | 功能 | **90 passed**（当轮记录；当前 98） | **90 passed**（当轮记录；当前 98） |
 | verify | 一键验收 | ALL PASS | ALL PASS |
 | A（10 轮） | 功能面 | 10/10 | 10/10 |
 | B（10 轮） | 并发/跨方言/边界/KMS | 8 pass + 2 skip（无 PG/Vault，**不计为通过**） | 10/10 |

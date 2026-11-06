@@ -10,10 +10,20 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from app.masking import MaskingSession  # noqa: E402
 
 
+_FW = {chr(0xFF10 + i): str(i) for i in range(10)}
+_FW.update({chr(0xFF21 + i): chr(ord("A") + i) for i in range(26)})
+_FW.update({chr(0xFF41 + i): chr(ord("a") + i) for i in range(26)})
+# 中文数字 / 全角 / 分隔符：比对时必须先归一化，否则「一三八零零一三八零零零」和
+# 「13800138000」是同一条 PII 却算两次不同 —— 报告里的召回率就不是召回率了。
+# ★ 2026-11-06 补：这一条是独立探针集暴露的 —— 评测脚本自己不做形态归一化，
+#   于是"中文数字写法"既可能被算成漏检，也可能被算成误报。
+_CN = str.maketrans("零一二三四五六七八九〇两", "012345678902")
+
+
 def norm(typ: str, s: str) -> str:
-    s = s.strip()
+    s = s.strip().translate(_FW).translate(_CN)
     if typ in ("手机号", "身份证号", "银行卡号"):
-        return re.sub(r"[\s\-]", "", s).upper()
+        return re.sub(r"[\s\-\+.]", "", s).upper()
     return re.sub(r"\s+", "", s)
 
 

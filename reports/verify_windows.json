@@ -6,7 +6,7 @@
   "python": "3.11.7"
  },
  "sha256": {
-  "app/masking.py": "772ed873812c447cf3c192348008cf3abfb987c3e14be0d52fd583aa0f6086de",
+  "app/masking.py": "3e95cbc9b4fb8e2b8653c986e307f5f41fec5329a8bc9e55643e27586338ca96",
   "app/vault.py": "dbf630f9a625d7af5b4592b5f62a2fc2eaf7df41ab96ebd1b7afe0759d13a039",
   "app/audit.py": "3bc1755017dd5d2a29b85f4aa8cb4d18114df231e6e5ab6aa824f0127e82be2d",
   "app/retention.py": "f2db867214f0e3b5002b5d9cbfa3fa444e08182c57644273d1c4761880857ee4",
@@ -17,14 +17,14 @@
   {
    "name": "unit_tests",
    "ok": true,
-   "passed": 95,
+   "passed": 98,
    "failed": 0,
-   "collected": 95,
+   "collected": 98,
    "skipped": 0,
    "rc": 0,
    "cmd": "python tools/run_tests.py",
    "tail": [
-    ".......................                                                  [100%]"
+    "..........................                                               [100%]"
    ]
   },
   {
@@ -34,6 +34,7 @@
     "samples_200.csv": {
      "samples": 228,
      "checks": {
+      "no_misses": true,
       "phone_recall": true,
       "idcard_recall": true,
       "name_recall": true,
@@ -60,6 +61,34 @@
     "holdout_adversarial.csv": {
      "samples": 38,
      "checks": {
+      "no_misses": true,
+      "phone_recall": true,
+      "idcard_recall": true,
+      "name_recall": true,
+      "addr_recall": true,
+      "fp_rate": true
+     },
+     "recall": {
+      "手机号": 1.0,
+      "身份证号": 1.0,
+      "银行卡号": 1.0,
+      "地址": 1.0,
+      "姓名": 1.0,
+      "邮箱": 1.0
+     },
+     "fp_rate": {
+      "手机号": 0.0,
+      "身份证号": 0.0,
+      "银行卡号": 0.0,
+      "地址": 0.0,
+      "姓名": 0.0,
+      "邮箱": 0.0
+     }
+    },
+    "probe_20261106.csv": {
+     "samples": 25,
+     "checks": {
+      "no_misses": true,
       "phone_recall": true,
       "idcard_recall": true,
       "name_recall": true,
@@ -84,7 +113,7 @@
      }
     }
    },
-   "cmd": "python tools/eval_masking.py [samples_200.csv|holdout_adversarial.csv]"
+   "cmd": "python tools/eval_masking.py [samples_200.csv|holdout_adversarial.csv|probe_20261106.csv]"
   },
   {
    "name": "audit_tamper_locate",
@@ -119,13 +148,13 @@
       3
      ],
      "missing_seq": [],
-     "tip": "d7c0089f17aee292c10fceb5804abbaab7e68ac82f6a1fcd955e58918e3223e4"
+     "tip": "a613f5d76b3d68342f475989f863a624aa8bbb45921a48613a4717825b5717d8"
     },
     "4_locate_seq3": [
      {
       "field": "content_or_hash",
-      "stored_hash": "31c05823b47ab01b6532c2bf813019cbed4624fb155428851f9d3e32abcbcb93",
-      "recomputed": "932630260f39a99240fecc15d4601e94b280f40d68e5f485a9053a2aa8e8985e"
+      "stored_hash": "cbdb2056b82844fcf73469b1c5e7f36d86c1cd5725a18edd82eff173886ea7ac",
+      "recomputed": "b35a72179c5644a836b4e62d0ecfa83bcd0e0d30ba288e5e5005f19775cce930"
      }
     ],
     "5_retention_report": {

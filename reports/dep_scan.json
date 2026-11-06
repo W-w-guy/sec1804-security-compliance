@@ -1,7 +1,7 @@
 {
  "scope": "requirements.lock 全闭包（版本以 lock 为准）",
  "total": 36,
- "strict_env": true,
+ "strict_env": false,
  "env_drift": [],
  "denied": [],
  "unknown": [],
